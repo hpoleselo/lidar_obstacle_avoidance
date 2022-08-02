@@ -32,7 +32,23 @@ An executable named voxel_grid_downsampling will be created in the same director
 
 ` $ ./voxel_grid_sampling `
 
-We'll see the result by the downsampled
+We'll see the result by the reduced number of points:
+
+```
+PointCloud before filtering: 460400 data points (x y z intensity distance sid).
+PointCloud after filtering: 41049 data points (x y z intensity distance sid).
+
+```
+
+If we reduce the leaf size to `0.005` we'll be getting more voxels in the grid, which would be an upsample:
+
+```
+PointCloud before filtering: 460400 data points (x y z intensity distance sid).
+PointCloud after filtering: 141525 data points (x y z intensity distance sid).
+
+```
+
+
 ## Resources
 
 https://www.yoctopuce.com/EN/article/compiling-the-c-library-with-cmake
