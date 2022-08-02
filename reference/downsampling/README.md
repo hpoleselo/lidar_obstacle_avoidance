@@ -4,7 +4,7 @@
 - Downsampling creates a 3D voxel grid, which in other words is an approximation over the input point cloud
 - A filter or a Voxel Grid is created with a certain leaf size (three dimensions must be given)
 
-## Building and Running the Application
+## Building and Running the Application in CPP
 
 1. Check CMake in our computer:
 
@@ -48,6 +48,15 @@ PointCloud after filtering: 141525 data points (x y z intensity distance sid).
 
 ```
 
+## Running in Python
+
+In Python instead of PCL, we make use of Open3D:
+
+` $ pip install open3d `
+
+It already installs all visualization and dependencies tools.
+
+` $ python3 downsample.py `
 
 ## Resources
 
