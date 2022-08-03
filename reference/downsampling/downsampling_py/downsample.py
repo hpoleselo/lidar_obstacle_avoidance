@@ -36,6 +36,7 @@ if __name__ == "__main__":
         radius=0.1, max_nn=30))
 
     print("Now the downsampled point cloud has more information (the normals), which indicates the rotation of the point.")
+    print("P.S: Press the 'N' key to visualize the normals.")
     o3d.visualization.draw_geometries([downpcd])
 
     print(f"Downsampled PCL with normal vectors incorporated have the same shape as the downsampled PCL:\n{np.asarray(downpcd.normals).shape}")
