@@ -32,6 +32,7 @@ if __name__ == "__main__":
     o3d.visualization.draw_geometries([downpcd])
 
     print("\n----- Recompute the normal of the downsampled point cloud -----")
+    # Uses covariance analysis to find adjacent points and calculate the principal axis from them
     downpcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
         radius=0.1, max_nn=30))
 
