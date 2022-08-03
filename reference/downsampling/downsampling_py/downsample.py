@@ -4,7 +4,7 @@ from sys import exit
 
 if __name__ == "__main__":
 
-    print("----- Load a PCD point cloud, print it, and render it -----")
+    print("\n----- Load a PCD point cloud, print it, and render it -----")
     pcd = o3d.io.read_point_cloud("../table_scene_lms400.pcd")
     if pcd.is_empty():
         exit()
@@ -20,31 +20,24 @@ if __name__ == "__main__":
     print(np.asarray(pcd.points).shape)
     print(np.asarray(pcd.points))
     o3d.visualization.draw_geometries([pcd])
+    """Using a default view when opening the visualization
+                                      zoom=0.9,
+                                      front=[0.4257, -0.2125, -0.8795],
+                                      lookat=[2.6172, 2.0475, 1.532],
+                                      up=[-0.0694, -0.9768, 0.2024]"""
 
-    print("----- Downsample the point cloud with a voxel of 0.05 -----")
+    print("\n----- Downsample the point cloud with a voxel of 0.05 -----")
     downpcd = pcd.voxel_down_sample(voxel_size=0.05)
     print(f"Downsampled PCL: \n {np.asarray(downpcd.points).shape}")
     o3d.visualization.draw_geometries([downpcd])
 
-    print("----- Recompute the normal of the downsampled point cloud -----")
+    print("\n----- Recompute the normal of the downsampled point cloud -----")
     downpcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
         radius=0.1, max_nn=30))
+
+    print("Now the downsampled point cloud has more information (the normals), which indicates the rotation of the point.")
     o3d.visualization.draw_geometries([downpcd])
 
-    print("Print a normal vector of the 0th point")
-    print(downpcd.normals[0])
-    print("Print the normal vectors of the first 10 points")
-    print(np.asarray(downpcd.normals)[:10, :])
-    print("")
-
-    print("----- Load a polygon volume and use it to crop the original point cloud -----")
-    vol = o3d.visualization.read_selection_polygon_volume(
-        "../../TestData/Crop/cropped.json")
-    chair = vol.crop_point_cloud(pcd)
-    o3d.visualization.draw_geometries([chair])
-    print("")
-
-    print("----- Paint chair -----")
-    chair.paint_uniform_color([1, 0.706, 0])
-    o3d.visualization.draw_geometries([chair])
-    print("")
+    print(f"Downsampled PCL with normal vectors incorporated have the same shape as the downsampled PCL:\n{np.asarray(downpcd.normals).shape}")
+    print(f"Print a normal vector of the 0th point of the point cloud:\n{downpcd.normals[0]}")
+    print(f"Print the normal vectors of the first 10 points:\n{np.asarray(downpcd.normals)[:10, :]}")

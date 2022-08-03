@@ -50,7 +50,7 @@ PointCloud after filtering: 141525 data points (x y z intensity distance sid).
 
 ## Running in Python
 
-In Python instead of PCL, we make use of Open3D:
+In Python instead of PCL, we make use of Open3D, though it's possible to use PCL within python (pcl-ros):
 
 ` $ pip install open3d `
 
@@ -60,6 +60,8 @@ It already installs all visualization and dependencies tools.
 
 ## Resources
 
-https://www.yoctopuce.com/EN/article/compiling-the-c-library-with-cmake
-
-Example taken from https://pointclouds.org/documentation/tutorials/voxel_grid.html
+- https://python-pcl-fork.readthedocs.io/en/rc_patches4/tutorial/filtering.html
+- http://www.open3d.org/docs/0.8.0/tutorial/Basic/pointcloud.html
+- http://www.open3d.org/docs/release/python_api/open3d.geometry.PointCloud.html
+- https://www.yoctopuce.com/EN/article/compiling-the-c-library-with-cmake
+- Example taken from https://pointclouds.org/documentation/tutorials/voxel_grid.html
