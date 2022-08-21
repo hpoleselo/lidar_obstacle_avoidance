@@ -23,7 +23,9 @@ Also, to prevent one possible error, make sure to change C++ version from 11 to 
 
 ## Issue 2
 
-After compiling succesfully the step above, when one runs the command to launch the simulation, the gazebo simulator and RVIZ are launched but no sensor data `/scan` topic is available and by looking at the terminal we get:
+`/gazebo/spawn_urdf_model service fails`
+
+After compiling succesfully the step above, when one runs the command to launch the simulation, the gazebo simulator and RVIZ are launched but no sensor data `/scan` topic is available and by looking at the terminal we get an error related to the spawning of the URDF failing, which is not related to the URDF specifically in this case, but to the timing of the simulation and when the sensor is available in the simulation.
 
 When checking in `rosout.log` from the logs error:
 
@@ -38,3 +40,5 @@ This error is related [to this Pull Request](https://github.com/ros-simulation/g
 <arg name="paused" value="true"/>
 <arg name="use_sim_time" value="true"/>
 ```
+
+After that we should be able to see the data in the `/scan` topic available and publishing `sensor_msgs/PointCloud`
