@@ -41,4 +41,10 @@ This error is related [to this Pull Request](https://github.com/ros-simulation/g
 <arg name="use_sim_time" value="true"/>
 ```
 
-After that we should be able to see the data in the `/scan` topic available and publishing `sensor_msgs/PointCloud`
+After that we should be able to see the data in the `/scan` topic available and publishing `sensor_msgs/PointCloud`.
+
+Another reference to this matter is [this one](https://github.com/ros-simulation/gazebo_ros_pkgs/issues/864) explaining why this error happens:
+
+> The world file you launched has sim time embedded on it (when someone saved that world file, the sim time was also saved in it).
+So, go to the world file, find "sim_time" and change its value to 0. It doesn't matter if you also change the "real_time" since it will reset itself upon gazebo start-up.
+The worst thing about this issue is that it really is not an issue. Gazebo will still simulate and everything will work, but that error message will haunt you forever even there really are no issues.
