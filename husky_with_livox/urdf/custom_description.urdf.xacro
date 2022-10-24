@@ -374,26 +374,18 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
   <!-- Optional for Clearpath internal softwares -->
   <xacro:include filename="$(arg cpr_urdf_extras)" />
 
-  <!-- Test to see a customization inside the original package works -->
+  <!-- Livox Sensor -->
+  <xacro:include filename="$(find livox_laser_simulation)/urdf/livox_mid70.xacro" />
 
-  <link name="bowler_link">
-    <visual>
-      <geometry>
-        <mesh filename="package://husky_custom_description/meshes/red_bowler.dae" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0.07" rpy="0 0 0" />
-      <geometry>
-        <box size="0.32 0.25 0.14" rpy="0 0 0"/>
-      </geometry>
-    </collision>
-  </link>
+  <xacro:property name="livox_lidar" value="livoxx"/>
 
-  <joint name="bowler_joint" type="fixed">
+  <!-- Instantiating the xacro macro within livox_mid70.xacro -->
+  <xacro:Livox_Mid70 name="${livox_lidar}"/>
+
+  <joint name="husky_to_livox_joint" type="fixed">
     <parent link="top_plate_link" />
-    <child link="bowler_link" />
-    <origin xyz="0.1 -0.1 0" rpy="0 0 0.5" />
+    <child link="${livox_lidar}_base" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
   </joint>
 
 </robot>
