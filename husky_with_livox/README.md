@@ -80,3 +80,46 @@ Clone Livox repository to your catkin_workspace:
     <param name="robot_description" command="$(find xacro)/xacro '$(find husky_with_livox)/urdf/custom_description.urdf.xacro'
       robot_namespace:=$(arg robot_namespace)" />
     ```
+
+## Running
+
+To test if it's working first run the raw husky environment:
+
+`$ roslaunch husky_gazebo husky_empty_world.launch`
+
+Since we have modified the original xacro from `husky_description`, we should see the livox mounted on it and generating a scan in Gazebo:
+
+![husky_com_livox](https://user-images.githubusercontent.com/24254286/197667896-83a5a4aa-c571-412b-a818-82c0da7d1422.png)
+
+Then control the robot by using:
+
+`$ rosrun teleop_twist_keyboard teleop_twist_keyboard.py`
+
+We should be able to check for the incoming messages containing the point cloud:
+
+`$ rostopic echo /scan`
+
+```shell
+  - 
+    x: 0.24610918760299683
+    y: 0.006262338254600763
+    z: -0.09895515441894531
+  - 
+    x: 0.2433687448501587
+    y: 0.006100865080952644
+    z: -0.09868306666612625
+```
+
+And even measuring the frequency of publication of this topic by:
+
+`$ rostopic hz /scan`
+
+```shell
+subscribed to [/scan]
+WARNING: may be using simulated time
+average rate: 10.381
+	min: 0.081s max: 0.105s std dev: 0.01087s window: 4
+average rate: 10.152
+	min: 0.081s max: 0.105s std dev: 0.00766s window: 9
+average rate: 10.059
+```
