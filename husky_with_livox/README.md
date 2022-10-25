@@ -1,7 +1,34 @@
 # Husky Customization with Livox LiDAR
 
 I had several issues while trying to add a custom sensor to Husky, mainly because the documentation provided [in here](https://www.clearpathrobotics.com/assets/guides/kinetic/husky/CustomizeHuskyConfig.html) wasn't clear and I was getting cyclic imports (that's my assumption at least).
-So I came up with a troubleshooting and a manual approach to add a sensor to Husky, which is not so elegant and I'll be trying to make it more elegant in the future, just follow the steps below:
+So I came up with a troubleshooting and a manual approach to add a sensor to Husky, which is not so elegant and I'll be trying to make it more elegant in the future.
+
+## Installation
+
+Clone this repository to your local workspace (assuming it's catkin_ws):
+
+` $ git clone https://github.com/hpoleselo/lidar_obstacle_avoidance `
+
+Make sure to install all necessary dependencies or just run the shell file located in `/shell/install_dependencies.sh` in this repository, first install teleoperation twist keyboard to control Husky:
+
+` $ sudo apt-get install ros-noetic-teleop-twist-keyboard `
+
+Then all packages related to Husky:
+
+```shell
+$ sudo apt-get install ros-noetic-husky-gazebo
+$ sudo apt-get install ros-noetic-husky-control
+$ sudo apt-get install ros-noetic-husky-description
+$ sudo apt-get install ros-noetic-husky-msgs
+$ sudo apt-get install ros-noetic-husky-simulator
+$ sudo apt-get install ros-noetic-husky-viz
+```
+
+Clone Livox repository to your catkin_workspace:
+
+`$ git clone git@github.com:Livox-SDK/livox_laser_simulation.git`
+
+## Procedure to Customize
 
 **Note that those files are already present in this folder so there's no need to follow all of them, just step 5.**.
 
