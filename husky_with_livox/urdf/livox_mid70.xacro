@@ -8,7 +8,7 @@
   <xacro:property name="vertical_fov" value="70.4"/>
   <xacro:property name="ros_topic" value="scan"/>
   <xacro:property name="samples" value="10000"/>
-  <xacro:property name="downsample" value="1"/>
+  <xacro:property name="downsample" value="10"/>
   
   <xacro:macro name="null_inertial">
     <inertial>
