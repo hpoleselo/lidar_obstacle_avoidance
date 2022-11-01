@@ -18,6 +18,8 @@
           izz="0.01"/>
     </inertial>
   </xacro:macro>
+  <!-- 10Hz seems to be normal publish rate for Solid-state Lidars -->
+  <!-- https://www.mdpi.com/1424-8220/21/5/1773/htm-->
   <xacro:macro name="Livox_Mid_gazebo_sensor" params="visualize:=True update_rate:=10 resolution:=0.002 noise_mean:=0.0 noise_stddev:=0.01 name:=livox">
     <gazebo reference="${name}">
       <sensor type="ray" name="laser_${name}">
@@ -69,6 +71,9 @@
       <visual> 
         <origin xyz="0.00 0 0.00" rpy="0 0 0"/>
         <geometry>
+          <!-- Tried to add custom converted .stp mid70 mesh to the simu. env. but didn't work well -->
+          <!-- Simulation physics were buggy. -->
+          <!-- <mesh filename="$(find husky_with_livox)/meshes/livox_mid70.dae"> -->
           <mesh filename="package://livox_laser_simulation/meshes/livox_mid40.dae">
           </mesh>
         </geometry>
@@ -77,11 +82,13 @@
       <collision>
           <origin xyz="0 0 0" rpy="0 0 0" />
           <geometry>
+          <!-- <mesh filename="$(find husky_with_livox)/meshes/livox_mid70.dae"> -->
           <mesh filename="package://livox_laser_simulation/meshes/livox_mid40.dae">
           </mesh>
           </geometry>
       </collision>
     </link>
+    
     <!-- Commenting this out because this was causing a two root link error -->
     <link name="${name}">
       <xacro:null_inertial/>
