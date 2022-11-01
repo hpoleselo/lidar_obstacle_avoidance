@@ -3,6 +3,16 @@
 I had several issues while trying to add a custom sensor to Husky, mainly because the documentation provided [in here](https://www.clearpathrobotics.com/assets/guides/kinetic/husky/CustomizeHuskyConfig.html) wasn't clear and I was getting cyclic imports (that's my assumption at least).
 So I came up with a troubleshooting and a manual approach to add a sensor to Husky, which is not so elegant and I'll be trying to make it more elegant in the future.
 
+## Table of Contents
+
+- [Husky Customization with Livox LiDAR](#husky-customization-with-livox-lidar)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Procedure to Run Customized Husky with Livox](#procedure-to-run-customized-husky-with-livox)
+  - [Procedure to Customize Husky with New Sensor](#procedure-to-customize-husky-with-new-sensor)
+  - [Running](#running)
+
+
 ## Installation
 
 Clone this repository to your local workspace (assuming it's catkin_ws):
@@ -28,7 +38,33 @@ Clone Livox repository to your catkin_workspace:
 
 `$ git clone git@github.com:Livox-SDK/livox_laser_simulation.git`
 
-## Procedure to Customize
+## Procedure to Run Customized Husky with Livox
+
+Make sure to follow the steps given in Installation section and then:
+
+1. Update your Livox URDF with the new adaption by: 
+
+```shell
+$ roscd husky_with_livox/urdf
+$ cp livox_mid70.xacro ~/catkin_ws/src/livox_laser_simulation/urdf/
+```
+
+2. Now update Husky launcher to point to our customized xacro:
+
+```shell
+$ roscd husky_with_livox/launch
+$ sudo cp description.launch /opt/ros/noetic/share/husky_description/launch
+```
+
+**Note**: Will find more elegant solution for this, instead of using sudo to copy a file, reference the Husky description somehow by a custom launch file.
+
+3. Test it by running the launch file:
+
+```shell
+$ roslaunch husky_with_livox husky_with_livox.launch
+```
+
+## Procedure to Customize Husky with New Sensor
 
 **Note that those files are already present in this folder so there's no need to follow all of them, just step 5.**.
 
