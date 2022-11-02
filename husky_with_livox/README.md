@@ -9,6 +9,7 @@ So I came up with a troubleshooting and a manual approach to add a sensor to Hus
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
   - [Procedure to Run Customized Husky with Livox](#procedure-to-run-customized-husky-with-livox)
+  - [Working with Offline Point Clouds](#working-with-offline-point-clouds)
   - [Procedure to Customize Husky with New Sensor](#procedure-to-customize-husky-with-new-sensor)
   - [Running](#running)
 
@@ -63,6 +64,62 @@ $ sudo cp description.launch /opt/ros/noetic/share/husky_description/launch
 ```shell
 $ roslaunch husky_with_livox husky_with_livox.launch
 ```
+
+## Working with Offline Point Clouds
+
+Livox Simulation Laser is using an old type of PointCloud message, which is simpler (just requires XYZ), but in the other hand most of the tools used for PCLs are based on PointCloud2, meaning the conversion from PointCloud to PointCloud2 is needed in order to, for instance, generate a .PCD file from a rosbag containing PointClouds.
+To convert from PointCloud to PointCloud2, clone [this repository](https://github.com/pal-robotics-forks/point_cloud_converter) to your catkin workspace:
+
+``` $ git clone git@github.com:pal-robotics-forks/point_cloud_converter.git ```
+
+catkin_make your workspace and then customize your launch file like this (such file is present in this repository):
+
+```xml
+<launch>
+	<node pkg="point_cloud_converter" name="point_cloud_converter" type="point_cloud_converter_node" >
+		<remap from="points_in" to="/scan"/>
+		<remap from="points2_out" to="/converted_point_cloud_2" />
+	</node>
+</launch>
+```
+
+We're basically taking as input our topic that publishes PointCloud and converting it to an output topic `/converted_point_cloud_2`.
+
+First make sure to run the simulation you want to record to a bag, in this specific case we were using our own custom world and Husky with livox:
+
+` $ roslaunch husky_with_livox husky_with_livox.launch`
+
+And run our converter node:
+
+``` $ roslaunch point_cloud_converter point_cloud_converter.launch ```
+
+We can check that the conversion is being made by checking:
+
+``` $ rostopic echo /converted_point_cloud_2 ```
+
+Record the simulation:
+
+` $ rosbag record -a`
+
+Then play your rosbag file (one is provided in this repository):
+
+``` $ rosbag play test_bag.bag ```
+
+Now to convert it to a PCD file:
+
+``` $ rosrun pcl_ros bag_to_pcd table_chair.bag /converted_point_cloud_2 .```
+
+Expected Output:
+
+```shell
+Data saved to ./160.400000000.pcd
+Got 1000 data points in frame laser_livoxx on topic /converted_point_cloud_2 with the following fields: x y z
+Data saved to ./160.500000000.pcd
+Got 1000 data points in frame laser_livoxx on topic /converted_point_cloud_2 with the following fields: x y z
+Data saved to ./160.600000000.pcd
+```
+
+Note that each message will be an array of points - in this specific case - containing 1k points per message, since the frequency of publishing is 10Hz we get around 10 messages per seconds which leads to 10k points per second and each message will result in one pcd file.
 
 ## Procedure to Customize Husky with New Sensor
 
