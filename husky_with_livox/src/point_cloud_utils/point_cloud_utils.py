@@ -5,7 +5,13 @@ import rospy
 from struct import pack, unpack
 import ctypes
 
-def ros_to_numpy(ros_pointcloud_msg):
+import open3d as o3d
+import matplotlib.pyplot as plt
+import copy
+import os
+import sys
+
+def ros_msg_to_numpy(ros_pointcloud_msg):
     """
     Converts sensor_msgs/PointCloud.msg to numpy array.
     http://docs.ros.org/en/melodic/api/sensor_msgs/html/msg/PointCloud.html
@@ -20,7 +26,7 @@ def ros_to_numpy(ros_pointcloud_msg):
 
     return np.array(xyz)
 
-def numpy_to_ros(numpy_array):
+def numpy_to_ros_msg(numpy_array):
     """ Converts a numpy array used in Open3D to a ROS sensor_msgs/PointCloud.msg """
     pcl_msg = PointCloud()
     pcl_msg.header.stamp = rospy.Time.now()
@@ -72,8 +78,47 @@ def numpy_to_ros(numpy_array):
 
     return pcl_msg
 
-def downsample():
+def clustering_dbscan(pcd):
     """
-    Converts numpy array to Open3D class and downsamples it.
+    Clusters a PointCloud in Numpy format using DBSCAN implementation
+    from Open3D.
+    
     """
-    pass
+    
+    print("Downsample the point cloud with a voxel of 0.05")
+    pcd = pcd.voxel_down_sample(voxel_size=0.05)
+
+    with o3d.utility.VerbosityContextManager(
+            o3d.utility.VerbosityLevel.Debug) as cm:
+        labels = np.array(
+            pcd.cluster_dbscan(eps=0.05, min_points=5, print_progress=True))
+
+    max_label = labels.max()
+    print(f"point cloud has {max_label + 1} clusters")
+    colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
+    colors[labels < 0] = 0
+    pcd.colors = o3d.utility.Vector3dVector(colors[:, :3])
+    o3d.visualization.draw_geometries([pcd],
+                                    zoom=0.455,
+                                    front=[-0.4999, -0.1659, -0.8499],
+                                    lookat=[2.1813, 2.0619, 2.0999],
+                                    up=[0.1204, -0.9852, 0.1215])
+
+
+# Testing Locally
+if __name__ == '__main__':
+    # Adapting for local testing (i.e. reading the PCL as a file, not from ROS)
+    from os import walk
+    test_data_path = "../../test_data/"
+    test_file_names = []
+
+    try:
+        for (dirpath, dirnames, filenames) in walk(test_data_path):
+            #test_file_names.append(filenames)
+            for file_name in filenames:
+                path_to_test_file = f"{test_data_path}{file_name}"
+                print(f"Reading: {path_to_test_file}")
+                pcd = o3d.io.read_point_cloud(path_to_test_file)
+                clustering_dbscan(pcd)
+    except ValueError as e:
+        print(f"{e} due to wrong or non-existing file name.")
