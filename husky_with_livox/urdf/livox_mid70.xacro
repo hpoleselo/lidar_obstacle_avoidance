@@ -8,7 +8,8 @@
   <xacro:property name="vertical_fov" value="70.4"/>
   <xacro:property name="ros_topic" value="scan"/>
   <xacro:property name="samples" value="10000"/>
-  <xacro:property name="downsample" value="10"/>
+  <!-- Kept downsample to 1 so that we get 10k points per message. -->
+  <xacro:property name="downsample" value="1"/>
   
   <xacro:macro name="null_inertial">
     <inertial>
