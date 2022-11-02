@@ -72,7 +72,7 @@ To convert from PointCloud to PointCloud2, clone [this repository](https://githu
 
 ``` $ git clone git@github.com:pal-robotics-forks/point_cloud_converter.git ```
 
-catkin_make your workspace and then customize your launch file like this (such file is present in this repository):
+catkin_make your workspace and then customize your launch file like this (such file is present [in this repository](https://github.com/hpoleselo/lidar_obstacle_avoidance/blob/main/husky_with_livox/launch/point_cloud_converter.launch)):
 
 ```xml
 <launch>
