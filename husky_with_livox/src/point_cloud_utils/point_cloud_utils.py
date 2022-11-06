@@ -4,7 +4,6 @@ from std_msgs.msg import Header
 import rospy
 from struct import pack, unpack
 import ctypes
-
 import open3d as o3d
 import matplotlib.pyplot as plt
 import copy
@@ -108,17 +107,6 @@ def clustering_dbscan(pcd):
 # Testing Locally
 if __name__ == '__main__':
     # Adapting for local testing (i.e. reading the PCL as a file, not from ROS)
-    from os import walk
     test_data_path = "../../test_data/"
-    test_file_names = []
-
-    try:
-        for (dirpath, dirnames, filenames) in walk(test_data_path):
-            #test_file_names.append(filenames)
-            for file_name in filenames:
-                path_to_test_file = f"{test_data_path}{file_name}"
-                print(f"Reading: {path_to_test_file}")
-                pcd = o3d.io.read_point_cloud(path_to_test_file)
-                clustering_dbscan(pcd)
-    except ValueError as e:
-        print(f"{e} due to wrong or non-existing file name.")
+    #print(f"Reading: {path_to_test_file}")
+    #pcd = o3d.io.read_point_cloud(concatenated_pcd_path)
