@@ -77,6 +77,11 @@ def numpy_to_ros_msg(numpy_array):
 
     return pcl_msg
 
+def downsample(pcd):
+    print("Downsample the point cloud with a voxel of 0.05")
+    voxelized_pcd = pcd.voxel_down_sample(voxel_size=0.05)
+    return voxelized_pcd
+
 def clustering_dbscan(pcd):
     """
     Clusters a PointCloud in Numpy format using DBSCAN implementation
@@ -84,9 +89,6 @@ def clustering_dbscan(pcd):
     
     """
     
-    print("Downsample the point cloud with a voxel of 0.05")
-    pcd = pcd.voxel_down_sample(voxel_size=0.05)
-
     with o3d.utility.VerbosityContextManager(
             o3d.utility.VerbosityLevel.Debug) as cm:
         labels = np.array(
@@ -165,7 +167,6 @@ def pass_through_filter(boundaries, pcd):
     print(f"Output Point Cloud with size of: {len(pcd.points)}")
     return pcd
 
-
 def apply_pass_through_filter(o3dpc, x_range, y_range, z_range):
     """ apply 3D pass through filter to the open3d point cloud
     Args:
@@ -193,7 +194,7 @@ def apply_pass_through_filter(o3dpc, x_range, y_range, z_range):
 def segment_plane(pcd):
     plane_model, inliers = pcd.segment_plane(distance_threshold=0.01,
                                             ransac_n=3,
-                                            num_iterations=50)
+                                            num_iterations=100)
     [a, b, c, d] = plane_model
     print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
 

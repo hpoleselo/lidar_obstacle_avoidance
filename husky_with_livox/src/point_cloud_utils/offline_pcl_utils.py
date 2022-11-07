@@ -73,14 +73,6 @@ def read_and_merge_pcd():
 if __name__ == '__main__':
     pcd = read_and_merge_pcd()
 
-
-    o3d.visualization.draw_geometries([pcd],
-                                    zoom=1,
-                                    front=[-0.4999, -0.1659, -0.8499],
-                                    lookat=[2.1813, 2.0619, 2.0999],
-                                    up=[0.1204, -0.9852, 0.1215])
-
-
     # To get min and max to perform the pass-through filter
     pcd_points = np.asarray(pcd.points)
 
@@ -104,8 +96,9 @@ if __name__ == '__main__':
         "y": y_range,
         "z": z_range
     }
+    downsampled_pcd = point_cloud_utils.downsample(pcd)
 
-    #point_cloud_utils.segment_plane(pcd)
+    point_cloud_utils.segment_plane(downsampled_pcd)
 
     """new_col, new_pos = point_cloud_utils.draw_guild_lines(filter_boundaries)
     new_data = np.concatenate((new_pos, new_col), axis = 1)
@@ -123,13 +116,13 @@ if __name__ == '__main__':
                                     up=[0.1204, -0.9852, 0.1215])"""
 
 
-    filtered_pcl = point_cloud_utils.pass_through_filter(filter_boundaries, pcd)
+    """filtered_pcl = point_cloud_utils.pass_through_filter(filter_boundaries, pcd)
 
     o3d.visualization.draw_geometries([filtered_pcl],
                                     zoom=1,
                                     front=[-0.4999, -0.1659, -0.8499],
                                     lookat=[2.1813, 2.0619, 2.0999],
-                                    up=[0.1204, -0.9852, 0.1215])
+                                    up=[0.1204, -0.9852, 0.1215])"""
 
 
     #filtered_pcl = point_cloud_utils.apply_pass_through_filter(pcd, x_range, y_range, z_range)
