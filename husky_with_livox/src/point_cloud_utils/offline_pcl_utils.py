@@ -24,9 +24,13 @@ def concatenate_multiple_pcds(list_of_pcd):
     pcd_t = []
 
     for pcd_file in list_of_pcd:
+        print(pcd_file)
+        if pcd_file == output_file_name:
+            continue
         print(f"Reading {pcd_file}")
         pcd = o3d.io.read_point_cloud(pcd_file)
         pcd_load = np.asarray(pcd.points)
+        print(f"Shape of pc: {len(pcd_load)}")
         pcd_t.append(pcd_load)
     final_pcd = np.concatenate(pcd_t)
     print(f"Shape of Final PCD: {final_pcd.shape}")
@@ -68,6 +72,14 @@ def read_and_merge_pcd():
 # Testing Locally
 if __name__ == '__main__':
     pcd = read_and_merge_pcd()
+
+
+    o3d.visualization.draw_geometries([pcd],
+                                    zoom=1,
+                                    front=[-0.4999, -0.1659, -0.8499],
+                                    lookat=[2.1813, 2.0619, 2.0999],
+                                    up=[0.1204, -0.9852, 0.1215])
+
 
     # To get min and max to perform the pass-through filter
     pcd_points = np.asarray(pcd.points)
