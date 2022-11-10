@@ -92,7 +92,7 @@ def clustering_dbscan(pcd):
     with o3d.utility.VerbosityContextManager(
             o3d.utility.VerbosityLevel.Debug) as cm:
         labels = np.array(
-            pcd.cluster_dbscan(eps=0.05, min_points=15, print_progress=True))
+            pcd.cluster_dbscan(eps=0.1, min_points=17, print_progress=True))
 
     max_label = labels.max()
     print(f"point cloud has {max_label + 1} clusters")
@@ -201,12 +201,12 @@ def segment_plane(pcd):
     inlier_cloud = pcd.select_by_index(inliers)
     inlier_cloud.paint_uniform_color([1.0, 0, 0])
     outlier_cloud = pcd.select_by_index(inliers, invert=True)
-    o3d.visualization.draw_geometries([outlier_cloud],
+    """o3d.visualization.draw_geometries([outlier_cloud],
                                     zoom=0.8,
                                     front=[-0.4999, -0.1659, -0.8499],
                                     lookat=[2.1813, 2.0619, 2.0999],
-                                    up=[0.1204, -0.9852, 0.1215])
-
+                                    up=[0.1204, -0.9852, 0.1215])"""
+    return outlier_cloud
 
 # Testing Locally
 if __name__ == '__main__':

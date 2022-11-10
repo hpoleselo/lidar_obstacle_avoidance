@@ -96,15 +96,18 @@ if __name__ == '__main__':
         "y": y_range,
         "z": z_range
     }
+
     downsampled_pcd = point_cloud_utils.downsample(pcd)
 
-    point_cloud_utils.segment_plane(downsampled_pcd)
+    segmented_pc = point_cloud_utils.segment_plane(downsampled_pcd)
+    point_cloud_utils.clustering_dbscan(segmented_pc)
 
+    
     """new_col, new_pos = point_cloud_utils.draw_guild_lines(filter_boundaries)
     new_data = np.concatenate((new_pos, new_col), axis = 1)
     print(new_col)
     print(new_pos)
-
+neno vai ficar no foco aq
     guild_points = o3d.geometry.PointCloud()
     guild_points.points = o3d.utility.Vector3dVector(new_pos)
     guild_points.colors = o3d.utility.Vector3dVector(new_col)
@@ -126,5 +129,3 @@ if __name__ == '__main__':
 
 
     #filtered_pcl = point_cloud_utils.apply_pass_through_filter(pcd, x_range, y_range, z_range)
-    
-    #point_cloud_utils.clustering_dbscan(filtered_pcl)
