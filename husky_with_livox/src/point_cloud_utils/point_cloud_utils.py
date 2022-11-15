@@ -210,28 +210,12 @@ def segment_plane(pcd):
                                     up=[0.1204, -0.9852, 0.1215])"""
     return outlier_cloud
 
-def convert_label_to_color():
-    pass
-
-def paint_each_cluster():
-    """ 
-    Separetes each identified cluster into a new list
-    
-    """
-    # Gets list of clusters
-    # 
-
 def cluster_hdbscan(pcd):
-
-    #o3dpc = copy.deepcopy(pcd)
-
-    #print(dir(pcd))
     pcd_points = np.asarray(pcd.points)
     print(pcd_points.shape)
     clusterer = hdbscan.HDBSCAN()
-    print(dir(clusterer))
+    #print(dir(clusterer))
     clusterer.fit(pcd_points)
-    print(f"Best epsilon found {clusterer.cluster_selection_epsilon()}")
     print(f"Got: {max(clusterer.labels_)+1} clusters.")
     print(f"List of labels: {clusterer.labels_}")
     # Use the Class to insert the label points and color them accordingly
@@ -244,31 +228,8 @@ def cluster_hdbscan(pcd):
     #                                min_cluster_size=2
     #                                )
 
-    # Convert labels array to color (Open3D understands colors between 0 and 1, not 0 and 255.)
-    converted_labels = deque()
-    for label in clusterer.labels_:
-        if label == 1:
-            converted_labels.append(label/5)
-        elif label == 0:
-            converted_labels.append(label)
-        elif label == 2:
-            converted_labels.append(label/2)
 
-    # TODO: Force a (n,3) conversion in order to match 
-    c2 = converted_labels.copy()
-    c3 = converted_labels.copy()
-
-    labels = [converted_labels, c2, c3]
-    
-    # Conversion to numpy is done in the end as it's more efficient
-    # and numpy array doesn't scale dynamically
-    # which means that we don't have to reallocate memory for the whole container once new elements appear.
-    colors = np.array(labels).transpose()
-    print(colors.shape)
-
-    pcd.colors = o3d.utility.Vector3dVector(colors)
-
-    return pcd
+    return clusterer.labels_
 
 # Testing Locally
 if __name__ == '__main__':
