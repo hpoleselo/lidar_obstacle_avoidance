@@ -102,8 +102,6 @@ def get_number_of_labels(labels: list) -> list:
     return set(labels)
 
 def get_pc_size(pcd) -> int:
-    print(pcd)
-    print(type(pcd))
     return pcd.shape[0]
 
 def generate_colored_clusters(unique_labels: list) -> deque:
@@ -147,13 +145,15 @@ def assign_data_points_to_colored_cluster(
                 colored_clusters[label].data_points.append(point_cloud[i])
 
 def convert_to_open3d_and_paint_clusters(colored_point_cloud_clusters) -> deque:
-    colored_clusters_with_data_points = deque()
+    colored_clusters_with_data_points_and_bboxes = deque()
     for colored_point_cloud_cluster in colored_point_cloud_clusters:
         colored_pc = o3d.geometry.PointCloud()
         colored_pc.points = o3d.utility.Vector3dVector(colored_point_cloud_cluster.data_points)
         colored_pc.paint_uniform_color(colored_point_cloud_cluster.color_open3d)
-        colored_clusters_with_data_points.append(colored_pc)
-    return colored_clusters_with_data_points
+        # Draw bounding box around the point cloud
+        colored_clusters_with_data_points_and_bboxes.append(colored_pc.get_axis_aligned_bounding_box())
+        colored_clusters_with_data_points_and_bboxes.append(colored_pc)
+    return colored_clusters_with_data_points_and_bboxes
 
 # Testing Locally
 if __name__ == '__main__':
@@ -183,11 +183,10 @@ if __name__ == '__main__':
         "z": z_range
     }
 
-    downsampled_pcd = point_cloud_utils.downsample(pcd)
+    downsampled_pc = point_cloud_utils.downsample(pcd)
 
-    segmented_pc = point_cloud_utils.segment_plane(downsampled_pcd)
+    segmented_pc = point_cloud_utils.segment_plane(downsampled_pc)
 
-    # TODO: Test without segmenting the ground
     cluster_labels_for_each_data_point = point_cloud_utils.cluster_hdbscan(segmented_pc)
 
     pc = np.asarray(segmented_pc.points)
@@ -196,6 +195,9 @@ if __name__ == '__main__':
     colored_clusters = generate_colored_clusters(unique_labels)
     assign_data_points_to_colored_cluster(colored_clusters, pc, pc_size, unique_labels, cluster_labels_for_each_data_point)
     open3d_clusterized_colored_pc = convert_to_open3d_and_paint_clusters(colored_clusters)
+    
+    
+
     visualize_pcd(open3d_clusterized_colored_pc)
 
     #point_cloud_utils.clustering_dbscan(segmented_pc)
