@@ -222,30 +222,58 @@ def cluster_hdbscan(pcd):
     #                                )
     return clusterer.labels_
 
-def get_bounding_box_vertices(cluster_point_cloud):
+def get_bounding_box_vertices_and_dimensions(cluster_point_cloud):
     """
     Gets each cluster min/max in order to draw each cluster a bounding box
-    This function will be used by both Open3D and RVIZ
+    This function will be used by both Open3D and RVIZ.
     """
     pc_points = np.asarray(cluster_point_cloud.points)
 
-    print(f"--- Checking if point cloud limits match the bounding box from Open3D so we can draw it in RVIZ: ---")
-
     x_max, y_max, z_max = pc_points.max(axis=0)
     x_min, y_min, z_min = pc_points.min(axis=0)
-    x_y_z_max = [x_max, y_max, z_max]
-    x_y_z_min = [x_min, y_min, z_min]
-    print("\nPoint Clound Boundaries from Numpy:")
-    print(f"Min: {x_y_z_min}\nMax:{x_y_z_max}")
-    bounding_box = cluster_point_cloud.get_axis_aligned_bounding_box()
-    print(f"\nBounding Box From Open3D: {np.asarray(bounding_box)}")
 
-    return x_y_z_max, x_y_z_min
+        #[x_min, y_max, z_min]
 
-def create_point_cloud_from_bbox_vertices(x_y_z_min, x_y_z_max=None):
+    bounding_box_points = [
+        [x_max, y_max, z_max],
+        [x_min, y_min, z_min],
+        [x_min, y_min, z_max],  # Varies only Z from the previous element, meaning we get Z
+        [x_min, y_max, z_min],   # Varies only Y from the element 1, meaning we get Y
+        [x_max, y_min, z_min]
+    ]
+
+    bounding_box_points = np.array(bounding_box_points)
+
+    box_dimensions_xyz = calculate_bounding_box_dimensions(bounding_box_points)
+    # Prior testing
+    #x_y_z_max = [x_max, y_max, z_max]
+    #x_y_z_min = [x_min, y_min, z_min]
+    #print("\nPoint Clound Boundaries from Numpy:")
+    #print(f"Min: {x_y_z_min}\nMax:{x_y_z_max}")
+    #bounding_box = cluster_point_cloud.get_axis_aligned_bounding_box()
+    #print(f"\nBounding Box From Open3D: {np.asarray(bounding_box)}")
+
+    return bounding_box_points, box_dimensions_xyz
+
+def calculate_bounding_box_dimensions(bounding_box_points):
+    """
+    Given the identified cluster max/min data points (i.e: vertices for the
+    to-be drawn bounding box), calculates the X, Y and Z dimensions of the box
+    in order to fit the clustered object.
+
+    Such operation is needed because BoundingBox.msg from jsk_recognition_msgs.msg
+    takes in such parameters in order to draw the box in RViz.
+    """
+    bbox_z_dimension = bounding_box_points[2] - bounding_box_points[1]
+    bbox_y_dimension = bounding_box_points[3] - bounding_box_points[1]
+    bbox_x_dimension = bounding_box_points[4] - bounding_box_points[1]
+    box_dimensions_xyz = (bbox_x_dimension[0], bbox_y_dimension[1], bbox_z_dimension[2])
+    return box_dimensions_xyz
+
+def create_point_cloud_from_bbox_vertices(bounding_box_points):
     bounding_box_spawn_point_cloud= o3d.geometry.PointCloud()
     # Has to be (N, 3)
-    bbox_origin = np.array([x_y_z_min])
+    bbox_origin = np.asarray(bounding_box_points)
     bounding_box_spawn_point_cloud.points = o3d.utility.Vector3dVector(bbox_origin)
     # Point will be red
     bounding_box_spawn_point_cloud.paint_uniform_color([1.0, 0.0, 0.0])
