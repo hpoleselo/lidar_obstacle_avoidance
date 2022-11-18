@@ -146,10 +146,19 @@ def assign_data_points_to_colored_cluster(
 
 def convert_to_open3d_and_paint_clusters(colored_point_cloud_clusters) -> deque:
     colored_clusters_with_data_points_and_bboxes = deque()
+    bounding_boxes_vertices = deque()
     for colored_point_cloud_cluster in colored_point_cloud_clusters:
         colored_pc = o3d.geometry.PointCloud()
         colored_pc.points = o3d.utility.Vector3dVector(colored_point_cloud_cluster.data_points)
+        
+        # Retrieving min and max data points to draw bounding boxes in RViz
+        x_y_z_max, x_y_z_min = point_cloud_utils.get_bounding_box_vertices(colored_pc)
+        
+        # Creates new separated point clouds for each bounding box starting point (contains only one XYZ)
+        colored_clusters_with_data_points_and_bboxes.append(point_cloud_utils.create_point_cloud_from_bbox_vertices(x_y_z_min, x_y_z_max))
+
         colored_pc.paint_uniform_color(colored_point_cloud_cluster.color_open3d)
+
         # Draw bounding box around the point cloud
         colored_clusters_with_data_points_and_bboxes.append(colored_pc.get_axis_aligned_bounding_box())
         colored_clusters_with_data_points_and_bboxes.append(colored_pc)
@@ -196,8 +205,6 @@ if __name__ == '__main__':
     assign_data_points_to_colored_cluster(colored_clusters, pc, pc_size, unique_labels, cluster_labels_for_each_data_point)
     open3d_clusterized_colored_pc = convert_to_open3d_and_paint_clusters(colored_clusters)
     
-    
-
     visualize_pcd(open3d_clusterized_colored_pc)
 
     #point_cloud_utils.clustering_dbscan(segmented_pc)

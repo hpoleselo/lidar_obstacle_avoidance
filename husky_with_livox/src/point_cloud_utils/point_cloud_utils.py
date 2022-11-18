@@ -107,9 +107,6 @@ def clustering_dbscan(pcd):
                                     lookat=[2.1813, 2.0619, 2.0999],
                                     up=[0.1204, -0.9852, 0.1215])
 
-def rgb2float(r, g, b, a = 0 ):
-    return unpack('f', pack('i',r << 16 | g << 8 | b))[0]
-
 def draw_guild_lines(boundaries, density = 0.01):
     """
     Draw wished boundaries for a pass-through filter.
@@ -212,24 +209,47 @@ def segment_plane(pcd):
 
 def cluster_hdbscan(pcd):
     pcd_points = np.asarray(pcd.points)
-    print(pcd_points.shape)
     clusterer = hdbscan.HDBSCAN()
     #print(dir(clusterer))
     clusterer.fit(pcd_points)
     print(f"Got: {max(clusterer.labels_)+1} clusters.")
-    print(f"List of labels: {clusterer.labels_}")
-    # Use the Class to insert the label points and color them accordingly
-
-
+    
     # ! If we wanted to select one epsilon for HDSCAN to compare with DBSCAN:
     #clusters = clusterer.single_linkage_.get_clusters(
                                     # Where this would be the specific epsilon
     #                                cut_distance=0.25,
     #                                min_cluster_size=2
     #                                )
-
-
     return clusterer.labels_
+
+def get_bounding_box_vertices(cluster_point_cloud):
+    """
+    Gets each cluster min/max in order to draw each cluster a bounding box
+    This function will be used by both Open3D and RVIZ
+    """
+    pc_points = np.asarray(cluster_point_cloud.points)
+
+    print(f"--- Checking if point cloud limits match the bounding box from Open3D so we can draw it in RVIZ: ---")
+
+    x_max, y_max, z_max = pc_points.max(axis=0)
+    x_min, y_min, z_min = pc_points.min(axis=0)
+    x_y_z_max = [x_max, y_max, z_max]
+    x_y_z_min = [x_min, y_min, z_min]
+    print("\nPoint Clound Boundaries from Numpy:")
+    print(f"Min: {x_y_z_min}\nMax:{x_y_z_max}")
+    bounding_box = cluster_point_cloud.get_axis_aligned_bounding_box()
+    print(f"\nBounding Box From Open3D: {np.asarray(bounding_box)}")
+
+    return x_y_z_max, x_y_z_min
+
+def create_point_cloud_from_bbox_vertices(x_y_z_min, x_y_z_max=None):
+    bounding_box_spawn_point_cloud= o3d.geometry.PointCloud()
+    # Has to be (N, 3)
+    bbox_origin = np.array([x_y_z_min])
+    bounding_box_spawn_point_cloud.points = o3d.utility.Vector3dVector(bbox_origin)
+    # Point will be red
+    bounding_box_spawn_point_cloud.paint_uniform_color([1.0, 0.0, 0.0])
+    return bounding_box_spawn_point_cloud
 
 # Testing Locally
 if __name__ == '__main__':
