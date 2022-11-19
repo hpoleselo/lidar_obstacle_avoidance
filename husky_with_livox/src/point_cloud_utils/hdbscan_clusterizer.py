@@ -15,9 +15,15 @@ from typing import List
 from collections import deque
 import random
 from jsk_recognition_msgs.msg import BoundingBox
+import rospy
 
 # TODO: Add variable to show in Open3D for offline testing
 view_in_open3d = False
+
+boundin_box_publisher = rospy.Publisher('cluster_bounding_boxes', BoundingBox)
+
+rospy.init_node('register')
+
 
 def configure_default_bounding_box():
     default_bounding_box = BoundingBox()
@@ -166,6 +172,37 @@ def convert_to_open3d_and_paint_clusters(colored_point_cloud_clusters) -> deque:
 # TODO: improve performance for dealing with class
 # TODO: https://stackoverflow.com/questions/44046920/changing-class-attributes-by-reference
 
+def draw_bounding_box_from_cluster(bounding_box_points,
+                                   bounding_box_dimensions_xyz,
+                                   cluster_label: int):
+
+
+    # TODO: Change from creating a bouding Box Class to actually get the already-created
+    # TODO: class and just update the values
+
+    
+    # Represents cluster initial point XYZ wrt. to Lidar
+    bounding_box_origin = bounding_box_points[0]
+
+    bbox = BoundingBox()
+    bbox.header.frame_id = 'cluster'
+    bbox.pose.position.x = bounding_box_origin[0]
+    bbox.pose.position.y = bounding_box_origin[1]
+    bbox.pose.position.z = bounding_box_origin[2]
+
+    # No rotation for the bounding box.
+    bbox.pose.orientation.w = 1
+    bbox.pose.orientation.z = 0
+    bbox.pose.orientation.y = 0
+    bbox.pose.orientation.x = 0
+
+    bbox.dimensions.x = bounding_box_dimensions_xyz[0]
+    bbox.dimensions.y = bounding_box_dimensions_xyz[1]
+    bbox.dimensions.z = bounding_box_dimensions_xyz[2]
+
+    bbox.label = cluster_label
+    boundin_box_publisher.publish(bbox)
+
 def function_to_return_n_classes():
     pass
 
@@ -188,3 +225,4 @@ if __name__ == '__main__':
     assign_data_points_to_each_cluster(colored_clusters, pcd_points, point_cloud_size, unique_labels, cluster_labels_for_each_data_point)
     
     open3d_clusterized_colored_pc = convert_to_open3d_and_paint_clusters(colored_clusters)
+
