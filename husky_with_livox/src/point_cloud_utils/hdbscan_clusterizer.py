@@ -123,46 +123,74 @@ def assign_data_points_to_each_cluster(
                 # Stores the datapoint to the class
                 point_cloud_clusters[label].cluster_data_points.append(point_cloud[i])
 
-def convert_to_open3d_and_paint_clusters(colored_point_cloud_clusters) -> deque:
-    """ 
-    1. Gets each separated cluster with its respective data points and creates a new
-    PointCloud() class object for each cluster and assigns the points to it.
-
-    2. Then each min/max points of each cluster, which will result in the bounding box computation
-    will be calculated and passed as a new element in the same list where we're assigning
-    the painted clusters.
-
-    3. Each class object is then painted using Open3D function.
-
-    4. Bounding Boxes from Open3D built-in function are drawn (this won't be needed in the future as
-    we'll be drawing everything in RViz.)
-
-    5. As mentined in step 2, both painted clusters, bounding boxes for Open3D and bounding boxes
-    points for RViz visualization are passed in to the same list (eases the visualization).
-
+def calculate_bounding_box_dimensions(bounding_box_points):
     """
-    colored_clusters_with_data_points_and_bboxes = deque()
-    bounding_boxes_points = deque()
-    for colored_point_cloud_cluster in colored_point_cloud_clusters:
-        colored_pc = o3d.geometry.PointCloud()
-        colored_pc.points = o3d.utility.Vector3dVector(colored_point_cloud_cluster.data_points)
-        
+    Given the identified cluster max/min data points (i.e: vertices for the
+    to-be drawn bounding box), calculates the X, Y and Z dimensions of the box
+    in order to fit the clustered object.
+
+    Such operation is needed because BoundingBox.msg from jsk_recognition_msgs.msg
+    takes in such parameters in order to draw the box in RViz.
+    """
+    bbox_z_dimension = bounding_box_points[2] - bounding_box_points[1]
+    bbox_y_dimension = bounding_box_points[3] - bounding_box_points[1]
+    bbox_x_dimension = bounding_box_points[4] - bounding_box_points[1]
+    box_dimensions_xyz = [bbox_x_dimension[0], bbox_y_dimension[1], bbox_z_dimension[2]]
+    return np.array(box_dimensions_xyz)
+
+def get_cluster_bounding_box_vertices_and_dimensions(cluster_point_cloud):
+    """
+    Gets each cluster min/max in order to draw each cluster a bounding box.
+    This function will be used by both Open3D and RVIZ.
+
+    Returns:
+    - bounding_box_origin_points: XYZ point to represent where the initial point will be drawn.
+    - box_dimensions_xyz: X, Y and Z dimensions of the bounding box.
+    - bounding_box_points: vertices in order to validate if the bounding box is correct in Open3D.
+    """
+    #pc_points = np.asarray(cluster_point_cloud.points)
+
+    cluster_point_cloud = np.asarray(cluster_point_cloud)
+
+    x_max, y_max, z_max = cluster_point_cloud.max(axis=0)
+    x_min, y_min, z_min = cluster_point_cloud.min(axis=0)
+
+        #[x_min, y_max, z_min]
+
+    # * Userd for Open3D in order to validate the bounding box vertices
+    bounding_box_points = [
+        [x_max, y_max, z_max],
+        [x_min, y_min, z_min],
+        [x_min, y_min, z_max],  # Varies only Z from the previous element, meaning we get Z
+        [x_min, y_max, z_min],  # Varies only Y from the element 1, meaning we get Y
+        [x_max, y_min, z_min]
+    ]
+
+    bounding_box_origin_points = [x_min, y_min, z_min]
+    bounding_box_origin_position = np.array(bounding_box_origin_points)
+
+    bounding_box_points = np.array(bounding_box_points)
+
+    box_dimensions_xyz = calculate_bounding_box_dimensions(bounding_box_points)
+    # Prior testing
+    #bounding_box = cluster_point_cloud.get_axis_aligned_bounding_box()
+    #print(f"\nBounding Box From Open3D: {np.asarray(bounding_box)}")
+
+    return bounding_box_origin_position, box_dimensions_xyz, bounding_box_points
+
+def get_cluster_bounding_box(point_cloud_clusters):
+    """
+    For each cluster get its bounding box parameters and return as a list.
+    """
+    bbox_origin_positions = deque()
+    bbox_dimensions_xyz = deque()
+    for point_cloud_cluster in point_cloud_clusters:
         # Retrieving min and max data points to draw bounding boxes in RViz
-        bounding_box_points = point_cloud_utils.get_bounding_box_vertices(colored_pc)
-        
-        bounding_boxes_points.append(bounding_box_points)
-
-        # Creates new separated point clouds for each bounding box starting point (contains only one XYZ)
-        colored_clusters_with_data_points_and_bboxes.append(point_cloud_utils.create_point_cloud_from_bbox_vertices(bounding_box_points))
-
-        colored_pc.paint_uniform_color(colored_point_cloud_cluster.color_open3d)
-
-        # Draw bounding box around the point cloud
-        colored_clusters_with_data_points_and_bboxes.append(colored_pc.get_axis_aligned_bounding_box())
-        colored_clusters_with_data_points_and_bboxes.append(colored_pc)
+        bounding_box_origin_position, box_dimensions_xyz, _ = get_cluster_bounding_box_vertices_and_dimensions(point_cloud_cluster.cluster_data_points)
+        bbox_origin_positions.append(bounding_box_origin_position)
+        bbox_dimensions_xyz.append(box_dimensions_xyz)
     
-    # ! Should return BOUNDING BOX POINTS
-    return colored_clusters_with_data_points_and_bboxes, bounding_box_points
+    return bbox_origin_positions, bbox_dimensions_xyz
 
 # * We're gonna be spawning the BoundingBox with default rotation and just populate later
 # * With the dimensions and origin points
@@ -176,11 +204,9 @@ def draw_bounding_box_from_cluster(bounding_box_points,
                                    bounding_box_dimensions_xyz,
                                    cluster_label: int):
 
-
     # TODO: Change from creating a bouding Box Class to actually get the already-created
     # TODO: class and just update the values
 
-    
     # Represents cluster initial point XYZ wrt. to Lidar
     bounding_box_origin = bounding_box_points[0]
 
@@ -209,6 +235,7 @@ def function_to_return_n_classes():
 if __name__ == '__main__':
     pcd = o3d.io.read_point_cloud('wall_table_chair.pcd')
     downsampled_pc = point_cloud_utils.downsample(pcd)
+
     # TODO: Will be replaced by the pass-through filter
     segmented_pc = point_cloud_utils.segment_plane(downsampled_pc)
 
@@ -224,5 +251,8 @@ if __name__ == '__main__':
     # Updates each class/cluster with given their respective data points
     assign_data_points_to_each_cluster(colored_clusters, pcd_points, point_cloud_size, unique_labels, cluster_labels_for_each_data_point)
     
-    open3d_clusterized_colored_pc = convert_to_open3d_and_paint_clusters(colored_clusters)
+    bbox_origin_positions, bbox_dimensions_xyz = get_cluster_bounding_box(colored_clusters)
+    
+    #update_classes
+    #draw_bounding_box_from_cluster()
 
