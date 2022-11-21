@@ -14,14 +14,17 @@ import point_cloud_utils
 from typing import List
 from collections import deque
 import random
-from jsk_recognition_msgs.msg import BoundingBox
+from jsk_recognition_msgs.msg import BoundingBox, BoundingBoxArray
 import rospy
 
 # TODO: Add variable to show in Open3D for offline testing
 view_in_open3d = False
 
+# TODO: Use ROSPARAM TO GET CLUSTERS NUMBER AND THEN CALL THE BROADCASTER SERVICE TO CREATE THE NUMBER OF FRAME_IDS
+
+
 # Queue size should be <= to the frequency of publication of the topic in order to it to be async.
-bounding_box_publisher = rospy.Publisher('cluster_bounding_boxes', BoundingBox, queue_size=8)
+bounding_box_publisher = rospy.Publisher('cluster_bounding_boxes', BoundingBoxArray, queue_size=8)
 
 rospy.init_node('register')
 
@@ -190,14 +193,15 @@ def get_cluster_bounding_box_and_publish(point_cloud_clusters):
     For each cluster get its bounding box parameters, updates the Point Cloud Cluster
     class with the bounding box information for the ROS message and publishes it.
     """
-    from time import sleep
+    bounding_box_array = BoundingBoxArray()
+    bounding_box_array.header.frame_id = 'cluster'
     for point_cloud_cluster in point_cloud_clusters:
         # Retrieving min and max data points to draw bounding boxes in RViz
         bounding_box_origin_position, box_dimensions_xyz, _ = get_cluster_bounding_box_vertices_and_dimensions(point_cloud_cluster.cluster_data_points)
 
         # * Updates message with the bounding box information
-        # Updates frame_id to be the number of the cluster
-        point_cloud_cluster.bounding_box.header.frame_id = f'cluster_{point_cloud_cluster.label}'
+        # * Updating each bounding box with a specific frame_id isn't needed.
+        #point_cloud_cluster.bounding_box.header.frame_id = f'cluster_{point_cloud_cluster.label}'
         point_cloud_cluster.bounding_box.pose.position.x = bounding_box_origin_position[0]
         point_cloud_cluster.bounding_box.pose.position.y = bounding_box_origin_position[1]
         point_cloud_cluster.bounding_box.pose.position.z = bounding_box_origin_position[2]
@@ -205,8 +209,11 @@ def get_cluster_bounding_box_and_publish(point_cloud_clusters):
         point_cloud_cluster.bounding_box.dimensions.y = box_dimensions_xyz[1]
         point_cloud_cluster.bounding_box.dimensions.z = box_dimensions_xyz[2]
         point_cloud_cluster.bounding_box.label = point_cloud_cluster.label
-        bounding_box_publisher.publish(point_cloud_cluster.bounding_box)
-        sleep(2)
+
+        # Appending a bounding box message to the Bounding Box Array
+        bounding_box_array.boxes.append(point_cloud_cluster.bounding_box)
+
+        bounding_box_publisher.publish(bounding_box_array)
 
 # TODO: improve performance for dealing with class
 # TODO: https://stackoverflow.com/questions/44046920/changing-class-attributes-by-reference
@@ -214,6 +221,9 @@ def get_cluster_bounding_box_and_publish(point_cloud_clusters):
 # TODO: Place everything into a single function
 def function_to_return_n_classes():
     pass
+
+#def create_clusters_frame_ids(number_of_clusters: int):
+
 
 if __name__ == '__main__':
 
@@ -229,6 +239,9 @@ if __name__ == '__main__':
     pcd_points = get_points_from_point_cloud(segmented_pc)
 
     unique_labels = get_number_of_labels(cluster_labels_for_each_data_point)
+
+    # TODO: Set rosparam number of clusters!
+
     point_cloud_size = get_point_cloud_size(pcd_points)
     colored_clusters = generate_clusters(unique_labels)
 
