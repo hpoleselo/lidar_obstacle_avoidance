@@ -20,35 +20,35 @@ import rospy
 # TODO: Add variable to show in Open3D for offline testing
 view_in_open3d = False
 
-boundin_box_publisher = rospy.Publisher('cluster_bounding_boxes', BoundingBox)
+# Queue size should be <= to the frequency of publication of the topic in order to it to be async.
+bounding_box_publisher = rospy.Publisher('cluster_bounding_boxes', BoundingBox, queue_size=8)
 
 rospy.init_node('register')
 
-
-def configure_default_bounding_box():
-    default_bounding_box = BoundingBox()
+def configure_default_bounding_box_msg():
+    default_bounding_box_msg = BoundingBox()
 
     # No rotation for the bounding box.
-    default_bounding_box.pose.orientation.w = 1
-    default_bounding_box.pose.orientation.z = 0
-    default_bounding_box.pose.orientation.y = 0
-    default_bounding_box.pose.orientation.x = 0
+    default_bounding_box_msg.pose.orientation.w = 1
+    default_bounding_box_msg.pose.orientation.z = 0.0
+    default_bounding_box_msg.pose.orientation.y = 0.0
+    default_bounding_box_msg.pose.orientation.x = 0.0
 
     # TODO: This will change to cluster_N dynamically afterwards so that each cluster has its frame_id
-    default_bounding_box.header.frame_id = 'cluster'
+    default_bounding_box_msg.header.frame_id = 'cluster'
 
-    default_bounding_box.pose.position.x = 0.0
-    default_bounding_box.pose.position.y = 0.0
-    default_bounding_box.pose.position.z = 0.0
-
-    # * Will be dynamically populated
-    default_bounding_box.dimensions.x = 0.0
-    default_bounding_box.dimensions.y = 0.0
-    default_bounding_box.dimensions.z = 0.0
+    default_bounding_box_msg.pose.position.x = 0.0
+    default_bounding_box_msg.pose.position.y = 0.0
+    default_bounding_box_msg.pose.position.z = 0.0
 
     # * Will be dynamically populated
-    default_bounding_box.label = 0
-    return default_bounding_box
+    default_bounding_box_msg.dimensions.x = 0.0
+    default_bounding_box_msg.dimensions.y = 0.0
+    default_bounding_box_msg.dimensions.z = 0.0
+
+    # * Will be dynamically populated
+    default_bounding_box_msg.label = 0
+    return default_bounding_box_msg
 
 # TODO: Place them into another module
 # ----- Helper Functions ------
@@ -66,8 +66,8 @@ def get_number_of_labels(labels: list) -> list:
     """
     return set(labels)
 
-# TODO: use on init to call the configure_default_bounding_box()
-default_bounding_box = configure_default_bounding_box()
+# TODO: use Class init to call the configure_default_bounding_box_msg()
+default_bounding_box_msg = configure_default_bounding_box_msg()
 
 class PointCloudCluster:
     """
@@ -79,7 +79,7 @@ class PointCloudCluster:
     label = 0   # Int that is represented by the label from a cluster outputted from HDBSCAN
     color_open3d = []
     cluster_data_points =  []
-    bounding_box = default_bounding_box
+    bounding_box = default_bounding_box_msg
 
 def generate_clusters(unique_labels: list) -> deque:
     """
@@ -99,7 +99,7 @@ def generate_clusters(unique_labels: list) -> deque:
                             round(random.uniform(0.0, 1.0), 3)
                             ]
         pcc.cluster_data_points = []
-        pcc.bounding_box = default_bounding_box
+        pcc.bounding_box = default_bounding_box_msg
         
         clusters.append(pcc)
     return clusters
@@ -178,19 +178,29 @@ def get_cluster_bounding_box_vertices_and_dimensions(cluster_point_cloud):
 
     return bounding_box_origin_position, box_dimensions_xyz, bounding_box_points
 
-def get_cluster_bounding_box(point_cloud_clusters):
+def get_cluster_bounding_box_and_publish(point_cloud_clusters):
     """
-    For each cluster get its bounding box parameters and return as a list.
+    For each cluster get its bounding box parameters, updates the Point Cloud Cluster
+    class with the bounding box information for the ROS message and publishes it.
     """
-    bbox_origin_positions = deque()
-    bbox_dimensions_xyz = deque()
+    from time import sleep
     for point_cloud_cluster in point_cloud_clusters:
         # Retrieving min and max data points to draw bounding boxes in RViz
         bounding_box_origin_position, box_dimensions_xyz, _ = get_cluster_bounding_box_vertices_and_dimensions(point_cloud_cluster.cluster_data_points)
-        bbox_origin_positions.append(bounding_box_origin_position)
-        bbox_dimensions_xyz.append(box_dimensions_xyz)
+
+        # * Updates message with the bounding box information
+        # Updates frame_id to be the number of the cluster
+        point_cloud_cluster.bounding_box.header.frame_id = f'cluster_{point_cloud_cluster.label}'
+        point_cloud_cluster.bounding_box.pose.position.x = bounding_box_origin_position[0]
+        point_cloud_cluster.bounding_box.pose.position.y = bounding_box_origin_position[1]
+        point_cloud_cluster.bounding_box.pose.position.z = bounding_box_origin_position[2]
+        point_cloud_cluster.bounding_box.dimensions.x = box_dimensions_xyz[0]
+        point_cloud_cluster.bounding_box.dimensions.y = box_dimensions_xyz[1]
+        point_cloud_cluster.bounding_box.dimensions.z = box_dimensions_xyz[2]
+        point_cloud_cluster.bounding_box.label = point_cloud_cluster.label
+        bounding_box_publisher.publish(point_cloud_cluster.bounding_box)
+        sleep(2)
     
-    return bbox_origin_positions, bbox_dimensions_xyz
 
 # * We're gonna be spawning the BoundingBox with default rotation and just populate later
 # * With the dimensions and origin points
@@ -200,37 +210,9 @@ def get_cluster_bounding_box(point_cloud_clusters):
 # TODO: improve performance for dealing with class
 # TODO: https://stackoverflow.com/questions/44046920/changing-class-attributes-by-reference
 
-def draw_bounding_box_from_cluster(bounding_box_points,
-                                   bounding_box_dimensions_xyz,
-                                   cluster_label: int):
-
-    # TODO: Change from creating a bouding Box Class to actually get the already-created
-    # TODO: class and just update the values
-
-    # Represents cluster initial point XYZ wrt. to Lidar
-    bounding_box_origin = bounding_box_points[0]
-
-    bbox = BoundingBox()
-    bbox.header.frame_id = 'cluster'
-    bbox.pose.position.x = bounding_box_origin[0]
-    bbox.pose.position.y = bounding_box_origin[1]
-    bbox.pose.position.z = bounding_box_origin[2]
-
-    # No rotation for the bounding box.
-    bbox.pose.orientation.w = 1
-    bbox.pose.orientation.z = 0
-    bbox.pose.orientation.y = 0
-    bbox.pose.orientation.x = 0
-
-    bbox.dimensions.x = bounding_box_dimensions_xyz[0]
-    bbox.dimensions.y = bounding_box_dimensions_xyz[1]
-    bbox.dimensions.z = bounding_box_dimensions_xyz[2]
-
-    bbox.label = cluster_label
-    boundin_box_publisher.publish(bbox)
-
 def function_to_return_n_classes():
     pass
+
 
 if __name__ == '__main__':
     pcd = o3d.io.read_point_cloud('wall_table_chair.pcd')
@@ -251,8 +233,7 @@ if __name__ == '__main__':
     # Updates each class/cluster with given their respective data points
     assign_data_points_to_each_cluster(colored_clusters, pcd_points, point_cloud_size, unique_labels, cluster_labels_for_each_data_point)
     
-    bbox_origin_positions, bbox_dimensions_xyz = get_cluster_bounding_box(colored_clusters)
-    
-    #update_classes
+    get_cluster_bounding_box_and_publish(colored_clusters)
+
     #draw_bounding_box_from_cluster()
 
