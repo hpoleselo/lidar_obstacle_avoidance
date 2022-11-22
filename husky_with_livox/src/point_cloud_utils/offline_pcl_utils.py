@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import List
 from collections import deque
 import random
+import k_means_clustering
 
 def visualize_pcd(pcd: list):
     """
@@ -145,7 +146,25 @@ def assign_data_points_to_colored_cluster(
                 colored_clusters[label].data_points.append(point_cloud[i])
 
 def convert_to_open3d_and_paint_clusters(colored_point_cloud_clusters) -> deque:
+    """ 
+    1. Gets each separated cluster with its respective data points and creates a new
+    PointCloud() class object for each cluster and assigns the points to it.
+
+    2. Then each min/max points of each cluster, which will result in the bounding box computation
+    will be calculated and passed as a new element in the same list where we're assigning
+    the painted clusters.
+
+    3. Each class object is then painted using Open3D function.
+
+    4. Bounding Boxes from Open3D built-in function are drawn (this won't be needed in the future as
+    we'll be drawing everything in RViz.)
+
+    5. As mentined in step 2, both painted clusters, bounding boxes for Open3D and bounding boxes
+    points for RViz visualization are passed in to the same list (eases the visualization).
+
+    """
     colored_clusters_with_data_points_and_bboxes = deque()
+    bounding_boxes_points = deque()
     for colored_point_cloud_cluster in colored_point_cloud_clusters:
         colored_pc = o3d.geometry.PointCloud()
         colored_pc.points = o3d.utility.Vector3dVector(colored_point_cloud_cluster.data_points)
@@ -153,6 +172,8 @@ def convert_to_open3d_and_paint_clusters(colored_point_cloud_clusters) -> deque:
         # Retrieving min and max data points to draw bounding boxes in RViz
         bounding_box_points = point_cloud_utils.get_bounding_box_vertices(colored_pc)
         
+        bounding_boxes_points.append(bounding_box_points)
+
         # Creates new separated point clouds for each bounding box starting point (contains only one XYZ)
         colored_clusters_with_data_points_and_bboxes.append(point_cloud_utils.create_point_cloud_from_bbox_vertices(bounding_box_points))
 
@@ -161,7 +182,9 @@ def convert_to_open3d_and_paint_clusters(colored_point_cloud_clusters) -> deque:
         # Draw bounding box around the point cloud
         colored_clusters_with_data_points_and_bboxes.append(colored_pc.get_axis_aligned_bounding_box())
         colored_clusters_with_data_points_and_bboxes.append(colored_pc)
-    return colored_clusters_with_data_points_and_bboxes
+    
+    # ! Should return BOUNDING BOX POINTS
+    return colored_clusters_with_data_points_and_bboxes, bounding_box_points
 
 # Testing Locally
 if __name__ == '__main__':
@@ -195,7 +218,13 @@ if __name__ == '__main__':
 
     segmented_pc = point_cloud_utils.segment_plane(downsampled_pc)
 
-    cluster_labels_for_each_data_point = point_cloud_utils.cluster_hdbscan(segmented_pc)
+    clf = k_means_clustering.KMeans(k=3)
+    pc = np.asarray(segmented_pc.points)
+    labels = clf.predict(pc)
+    
+    k_means_clustering.draw_labels_on_model(segmented_pc,labels)
+
+    """cluster_labels_for_each_data_point = point_cloud_utils.cluster_hdbscan(segmented_pc)
 
     pc = np.asarray(segmented_pc.points)
     pc_size = get_pc_size(pc)
@@ -204,18 +233,6 @@ if __name__ == '__main__':
     assign_data_points_to_colored_cluster(colored_clusters, pc, pc_size, unique_labels, cluster_labels_for_each_data_point)
     open3d_clusterized_colored_pc = convert_to_open3d_and_paint_clusters(colored_clusters)
     
-    visualize_pcd(open3d_clusterized_colored_pc)
+    visualize_pcd(open3d_clusterized_colored_pc)"""
 
     #point_cloud_utils.clustering_dbscan(segmented_pc)
-
-
-    """     boundPoint1 = collider.bounds.min;
-     boundPoint2 = collider.bounds.max;
-         boundPoint3 = Vector3(boundPoint1.x, boundPoint1.y, boundPoint2.z);
-     boundPoint4 = Vector3(boundPoint1.x, boundPoint2.y, boundPoint1.z);
-     boundPoint5 = Vector3(boundPoint2.x, boundPoint1.y, boundPoint1.z);
-     boundPoint6 = Vector3(boundPoint1.x, boundPoint2.y, boundPoint2.z);
-     boundPoint7 = Vector3(boundPoint2.x, boundPoint1.y, boundPoint2.z);
-     boundPoint8 = Vector3(boundPoint2.x, boundPoint2.y, boundPoint1.z);
-    
-    """
