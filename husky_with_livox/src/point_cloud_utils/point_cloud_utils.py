@@ -13,6 +13,18 @@ from collections import deque
 import hdbscan
 from jsk_recognition_msgs.msg import BoundingBox
 
+def visualize_pcd(pcd: list):
+    """
+    Visualize it in Open3D interface.
+    pcd: list. Must be passed in a list format, if wished multiple
+    point clouds can be passe.  
+    """
+    o3d.visualization.draw_geometries(pcd,
+                                    zoom=0.49,
+                                    front=[-0.4999, -0.1659, -0.8499],
+                                    lookat=[2.1813, 2.0619, 2.0999],
+                                    up=[0.1204, -0.9852, 0.1215])
+
 def ros_msg_to_numpy(ros_pointcloud_msg):
     """
     Converts sensor_msgs/PointCloud.msg to numpy array.
@@ -81,7 +93,7 @@ def numpy_to_ros_msg(numpy_array):
     return pcl_msg
 
 def downsample(pcd):
-    print("Downsample the point cloud with a voxel of 0.05")
+    #print("Downsample the point cloud with a voxel of 0.05")
     voxelized_pcd = pcd.voxel_down_sample(voxel_size=0.05)
     return voxelized_pcd
 
@@ -190,7 +202,7 @@ def segment_plane(pcd):
                                             ransac_n=3,
                                             num_iterations=100)
     [a, b, c, d] = plane_model
-    print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
+    #print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
 
     inlier_cloud = pcd.select_by_index(inliers)
     inlier_cloud.paint_uniform_color([1.0, 0, 0])
