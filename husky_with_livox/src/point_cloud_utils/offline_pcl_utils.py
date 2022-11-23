@@ -86,111 +86,18 @@ def read_and_merge_pcd(test_data_path: str,
     pcd = o3d.io.read_point_cloud(concatenated_pcd_path)
     return pcd
 
-class ColoredPointCloudCluster(BaseModel):
-    """
-    Class that describes data structure to represent a cluster to be colored.
-    HDBSCAN will output N clusters, therefore N classes should be created 
-    """
-    label: int
-    color_open3d: List[float]
-    data_points: List[float]
-
-def get_number_of_labels(labels: list) -> list:
-    """
-    HDBSCAN will return an array containing the labels, this function creates a unique list out of
-    the unique ids.
-    """
-    return set(labels)
-
-def get_pc_size(pcd) -> int:
-    return pcd.shape[0]
-
-def generate_colored_clusters(unique_labels: list) -> deque:
-    """
-    Based on the N unique labels identified from HDBSCAN clustering algorithm, N classes
-    will be generated (along with colors) to be populated with the separeted points.
-    In other words N different point clouds will be generated and then merged together.
-    """
-
-    clusters = deque()
-    for label in unique_labels:
-        # Generates Red, Green and Blue color channels for the Cluster color
-        cpcc = ColoredPointCloudCluster(
-            label = label,
-            color_open3d = [
-                            round(random.uniform(0.0, 1.0), 3),    # Red channel
-                            round(random.uniform(0.0, 1.0), 3),    # Green channel
-                            round(random.uniform(0.0, 1.0), 3)],   # Blue channel
-            data_points = []
-        )
-        clusters.append(cpcc)
-    return clusters
-
-def assign_data_points_to_colored_cluster(
-                                  colored_clusters: List[ColoredPointCloudCluster],
-                                  point_cloud,
-                                  size_of_pc: int,
-                                  unique_labels: List[int], 
-                                  labels_from_hdbscan: List[List[float]]
-                                  ):
-    """
-    Compares each data point XYZ and its respective label from the point cloud and HDBSCAN output and
-    assigns each data point to the correct cluster (to the correct Class).
-    Each class (cluster) will be populated with their respective datapoints, other values are going to be 0. 
-    """
-    for i in range(size_of_pc):
-        for label in unique_labels:
-            if labels_from_hdbscan[i] == label:
-                # Since we're expecting the labels to be ordered, we can reference the correct class/cluster id by the label itself
-                # Stores the datapoint to the class
-                colored_clusters[label].data_points.append(point_cloud[i])
-
-def convert_to_open3d_and_paint_clusters(colored_point_cloud_clusters) -> deque:
-    """ 
-    1. Gets each separated cluster with its respective data points and creates a new
-    PointCloud() class object for each cluster and assigns the points to it.
-
-    2. Then each min/max points of each cluster, which will result in the bounding box computation
-    will be calculated and passed as a new element in the same list where we're assigning
-    the painted clusters.
-
-    3. Each class object is then painted using Open3D function.
-
-    4. Bounding Boxes from Open3D built-in function are drawn (this won't be needed in the future as
-    we'll be drawing everything in RViz.)
-
-    5. As mentined in step 2, both painted clusters, bounding boxes for Open3D and bounding boxes
-    points for RViz visualization are passed in to the same list (eases the visualization).
-
-    """
-    colored_clusters_with_data_points_and_bboxes = deque()
-    bounding_boxes_points = deque()
-    for colored_point_cloud_cluster in colored_point_cloud_clusters:
-        colored_pc = o3d.geometry.PointCloud()
-        colored_pc.points = o3d.utility.Vector3dVector(colored_point_cloud_cluster.data_points)
-        
-        # Retrieving min and max data points to draw bounding boxes in RViz
-        bounding_box_points = point_cloud_utils.get_bounding_box_vertices(colored_pc)
-        
-        bounding_boxes_points.append(bounding_box_points)
-
-        # Creates new separated point clouds for each bounding box starting point (contains only one XYZ)
-        colored_clusters_with_data_points_and_bboxes.append(point_cloud_utils.create_point_cloud_from_bbox_vertices(bounding_box_points))
-
-        colored_pc.paint_uniform_color(colored_point_cloud_cluster.color_open3d)
-
-        # Draw bounding box around the point cloud
-        colored_clusters_with_data_points_and_bboxes.append(colored_pc.get_axis_aligned_bounding_box())
-        colored_clusters_with_data_points_and_bboxes.append(colored_pc)
-    
-    # ! Should return BOUNDING BOX POINTS
-    return colored_clusters_with_data_points_and_bboxes, bounding_box_points
 
 # Testing Locally
 if __name__ == '__main__':
-    test_data_path = "../../test_data/"
-    point_clouds_directories = ["table_closer", "table_far_away", "wall_table_chair"]
-    pcd = read_and_merge_pcd(test_data_path, point_clouds_directories)
+
+    point_cloud_needs_post_processing = False
+
+    if point_cloud_needs_post_processing:
+        test_data_path = "../../test_data/"
+        point_clouds_directories = ["table_closer", "table_far_away", "wall_table_chair"]
+        pcd = read_and_merge_pcd(test_data_path, point_clouds_directories)
+    else:
+        pcd = o3d.io.read_point_cloud('wall_table_chair.pcd')
 
     # To get min and max to perform the pass-through filter
     pcd_points = np.asarray(pcd.points)
@@ -203,36 +110,20 @@ if __name__ == '__main__':
     #y_range = [-3.5, 3.5]
     #z_range = [-3.5, 3.5]
 
-
-    x_range = [-3.5, 3 + max(pcd_points[0])]
-    y_range = [0, 3 + max(pcd_points[1])]
-    z_range = [min(pcd_points[2]) - 0.5, 3 + max(pcd_points[2])]
-    
-    filter_boundaries = {
-        "x": x_range,
-        "y": y_range,
-        "z": z_range
-    }
-
     downsampled_pc = point_cloud_utils.downsample(pcd)
 
-    segmented_pc = point_cloud_utils.segment_plane(downsampled_pc)
+    filter_boundaries = point_cloud_utils.get_pass_through_filter_boundaries(pcd_points)
+    filtered_pc = point_cloud_utils.pass_through_filter(filter_boundaries, downsampled_pc)
+    visualize_pcd([filtered_pc])
+    #segmented_pc = point_cloud_utils.segment_plane(downsampled_pc)
 
-    clf = k_means_clustering.KMeans(k=3)
-    pc = np.asarray(segmented_pc.points)
-    labels = clf.predict(pc)
+    #clf = k_means_clustering.KMeans(k=3)
+    #pc = np.asarray(segmented_pc.points)
+    #labels = clf.predict(pc)
     
-    k_means_clustering.draw_labels_on_model(segmented_pc,labels)
+    #k_means_clustering.draw_labels_on_model(segmented_pc,labels)
 
     """cluster_labels_for_each_data_point = point_cloud_utils.cluster_hdbscan(segmented_pc)
-
-    pc = np.asarray(segmented_pc.points)
-    pc_size = get_pc_size(pc)
-    unique_labels = get_number_of_labels(cluster_labels_for_each_data_point)
-    colored_clusters = generate_colored_clusters(unique_labels)
-    assign_data_points_to_colored_cluster(colored_clusters, pc, pc_size, unique_labels, cluster_labels_for_each_data_point)
-    open3d_clusterized_colored_pc = convert_to_open3d_and_paint_clusters(colored_clusters)
-    
     visualize_pcd(open3d_clusterized_colored_pc)"""
 
     #point_cloud_utils.clustering_dbscan(segmented_pc)

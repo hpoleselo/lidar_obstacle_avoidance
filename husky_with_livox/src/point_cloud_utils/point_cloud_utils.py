@@ -11,6 +11,7 @@ import os
 import sys
 from collections import deque
 import hdbscan
+from jsk_recognition_msgs.msg import BoundingBox
 
 def ros_msg_to_numpy(ros_pointcloud_msg):
     """
@@ -101,12 +102,8 @@ def clustering_dbscan(pcd):
     colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
     colors[labels < 0] = 0
     pcd.colors = o3d.utility.Vector3dVector(colors[:, :3])
-    o3d.visualization.draw_geometries([pcd],
-                                    zoom=0.455,
-                                    front=[-0.4999, -0.1659, -0.8499],
-                                    lookat=[2.1813, 2.0619, 2.0999],
-                                    up=[0.1204, -0.9852, 0.1215])
-
+    return pcd
+    
 def draw_guild_lines(boundaries, density = 0.01):
     """
     Draw wished boundaries for a pass-through filter.
@@ -151,44 +148,42 @@ def draw_guild_lines(boundaries, density = 0.01):
 
     return np.concatenate((lines_x,lines_y,lines_z)), np.asmatrix(np.concatenate((lines_x_color,lines_y_color,lines_z_color)))
 
+def get_pass_through_filter_boundaries(point_cloud_points: np.array):
+    """
+    Based on the input point cloud, get min and max of each dimension (XYZ) and adds
+    one small offsets in the Z-axis so that ground plane removal works and outputs
+    a dictionary so that it can be used on a pass-through filter.
+    """
+    x_max, y_max, z_max = point_cloud_points.max(axis=0)
+    x_min, y_min, z_min = point_cloud_points.min(axis=0)
+    
+    # 0.08cm offset
+    z_offset_ground_removal = 0.08
+
+    filter_boundaries = {
+        "x": [x_min, x_max],
+        "y": [y_min, y_max],
+        "z": [z_min + z_offset_ground_removal, z_max]
+    }
+
+    return filter_boundaries
+
 def pass_through_filter(boundaries, pcd):
     """
-    
+    Removes one
+    Args:
+        boundaries (dict)
+    Returns
+        o3dpc (open3d.geometry.PointCloud): filtered open3d point cloud
     """
     points = np.asarray(pcd.points)
-    points[:,0]
-    print(f"Input Point Cloud with size of: {len(points)}")
+    #print(f"Input Point Cloud with size of: {len(points)}")
     x_range = np.logical_and(points[:,0] >= boundaries["x"][0] ,points[:,0] <= boundaries["x"][1])
     y_range = np.logical_and(points[:,1] >= boundaries["y"][0] ,points[:,1] <= boundaries["y"][1])
     z_range = np.logical_and(points[:,2] >= boundaries["z"][0] ,points[:,2] <= boundaries["z"][1])
     pass_through_filter = np.logical_and(x_range,np.logical_and(y_range,z_range))
     pcd.points = o3d.utility.Vector3dVector(points[pass_through_filter])
-    print(f"Output Point Cloud with size of: {len(pcd.points)}")
     return pcd
-
-def apply_pass_through_filter(o3dpc, x_range, y_range, z_range):
-    """ apply 3D pass through filter to the open3d point cloud
-    Args:
-        o3dpc (open3d.geometry.PointCloud): open3d point cloud
-        x_range (list): list of [x_min, x_maz]
-        y_range (list): list of [y_min, y_maz]
-        z_range (list): list of [z_min, z_max]
-    Returns:
-        o3dpc (open3d.geometry.PointCloud): filtered open3d point cloud
-    some codes from https://github.com/powersimmani/example_3d_pass_through-filter_guide
-    """
-    o3dpc = copy.deepcopy(o3dpc)
-    cloud_npy = np.asarray(o3dpc.points)
-    x_range = np.logical_and(cloud_npy[:, 0] >= x_range[0], cloud_npy[:, 0] <= x_range[1])
-    y_range = np.logical_and(cloud_npy[:, 1] >= y_range[0], cloud_npy[:, 1] <= y_range[1])
-    z_range = np.logical_and(cloud_npy[:, 2] >= z_range[0], cloud_npy[:, 2] <= z_range[1])
-    pass_through_filter = np.logical_and(x_range, np.logical_and(y_range, z_range))
-    o3dpc.points = o3d.utility.Vector3dVector(cloud_npy[pass_through_filter])
-    
-    colors = np.asarray(o3dpc.colors)
-    if len(colors) > 0:
-        o3dpc.colors = o3d.utility.Vector3dVector(colors[pass_through_filter])
-    return o3dpc
 
 def segment_plane(pcd):
     plane_model, inliers = pcd.segment_plane(distance_threshold=0.01,
@@ -278,6 +273,31 @@ def create_point_cloud_from_bbox_vertices(bounding_box_points):
     # Point will be red
     bounding_box_spawn_point_cloud.paint_uniform_color([1.0, 0.0, 0.0])
     return bounding_box_spawn_point_cloud
+
+def draw_bounding_box_from_cluster(bounding_box_points,
+                                   bounding_box_dimensions_xyz,
+                                   cluster_label: int):
+    # Represents cluster initial point XYZ wrt. to Lidar
+    bounding_box_origin = bounding_box_points[0]
+
+    bbox = BoundingBox()
+    bbox.header.frame_id = 'cluster'
+    bbox.pose.position.x = bounding_box_origin[0]
+    bbox.pose.position.y = bounding_box_origin[1]
+    bbox.pose.position.z = bounding_box_origin[2]
+
+    # No rotation for the bounding box.
+    bbox.pose.orientation.w = 1
+    bbox.pose.orientation.z = 0
+    bbox.pose.orientation.y = 0
+    bbox.pose.orientation.x = 0
+
+    bbox.dimensions.x = bounding_box_dimensions_xyz[0]
+    bbox.dimensions.y = bounding_box_dimensions_xyz[1]
+    bbox.dimensions.z = bounding_box_dimensions_xyz[2]
+
+    bbox.label = cluster_label
+    boundin_box_publisher.publish(bbox)
 
 # Testing Locally
 if __name__ == '__main__':
