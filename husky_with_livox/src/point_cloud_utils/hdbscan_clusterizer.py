@@ -236,8 +236,12 @@ if __name__ == '__main__':
     pc_points = np.asarray(downsampled_pc.points)
     filter_boundaries = point_cloud_utils.get_pass_through_filter_boundaries(pc_points)
     filtered_pc = point_cloud_utils.pass_through_filter(filter_boundaries, downsampled_pc)
-    cluster_labels_for_each_data_point = point_cloud_utils.cluster_hdbscan(filtered_pc)
+    cluster_labels_for_each_data_point, dbscan_cut = point_cloud_utils.cluster_hdbscan(filtered_pc)
     generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
+    
+    # Testing DBSCAN to compare with single linkage tree cut from HDBSCAN
+    point_cloud_utils.clustering_dbscan(filtered_pc, 0.05, 5)
+    
     #draw_bounding_box_from_cluster()
     #point_cloud_utils.visualize_pcd([])
     

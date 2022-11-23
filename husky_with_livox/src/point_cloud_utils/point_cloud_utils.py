@@ -97,7 +97,7 @@ def downsample(pcd):
     voxelized_pcd = pcd.voxel_down_sample(voxel_size=0.05)
     return voxelized_pcd
 
-def clustering_dbscan(pcd):
+def clustering_dbscan(pcd, epsilon, min_points):
     """
     Clusters a PointCloud in Numpy format using DBSCAN implementation
     from Open3D.
@@ -107,10 +107,10 @@ def clustering_dbscan(pcd):
     with o3d.utility.VerbosityContextManager(
             o3d.utility.VerbosityLevel.Debug) as cm:
         labels = np.array(
-            pcd.cluster_dbscan(eps=0.1, min_points=17, print_progress=True))
+            pcd.cluster_dbscan(eps=epsilon, min_points=min_points, print_progress=True))
 
     max_label = labels.max()
-    print(f"point cloud has {max_label + 1} clusters")
+    rospy.loginfo(f"Using Raw DBSCAN {max_label + 1} clusters were identified using Eps:{epsilon} and MinPoints:{min_points}")
     colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
     colors[labels < 0] = 0
     pcd.colors = o3d.utility.Vector3dVector(colors[:, :3])
@@ -217,17 +217,22 @@ def segment_plane(pcd):
 def cluster_hdbscan(pcd):
     pcd_points = np.asarray(pcd.points)
     clusterer = hdbscan.HDBSCAN()
-    #print(dir(clusterer))
+    print(dir(clusterer))
     clusterer.fit(pcd_points)
-    print(f"Got: {max(clusterer.labels_)+1} clusters.")
+    rospy.loginfo(f"[HDBSCAN Clusterer]: Got {max(clusterer.labels_)+1} clusters.")
     
     # ! If we wanted to select one epsilon for HDSCAN to compare with DBSCAN:
-    #clusters = clusterer.single_linkage_.get_clusters(
+    epsilon = 0.05
+    min_points = 5
+    single_linkage_clusters = clusterer.single_linkage_tree_.get_clusters(
                                     # Where this would be the specific epsilon
-    #                                cut_distance=0.25,
-    #                                min_cluster_size=2
-    #                                )
-    return clusterer.labels_
+                                    cut_distance=epsilon,
+                                    min_cluster_size=min_points
+                                    )
+
+    rospy.loginfo(f"When using single linkage tree for epsilon: {epsilon} and minPts: {min_points}, got {max(single_linkage_clusters)+1} clusters.")
+
+    return clusterer.labels_, single_linkage_clusters
 
 def get_bounding_box_vertices_and_dimensions(cluster_point_cloud):
     """
