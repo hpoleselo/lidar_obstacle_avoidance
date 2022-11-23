@@ -3,7 +3,6 @@
 HDBSCAN Clusterizer takes in a Point Cloud from ROS, clusterizes it by using HBDSCAN
 algorithm and creates Bounding Boxes in RViz from the clustered objects.
 
-
 Author: Henrique Poleselo
 November 19th 2022.
 """
@@ -20,13 +19,13 @@ import rospy
 # TODO: Add variable to show in Open3D for offline testing
 view_in_open3d = False
 
-# TODO: Use ROSPARAM TO GET CLUSTERS NUMBER AND THEN CALL THE BROADCASTER SERVICE TO CREATE THE NUMBER OF FRAME_IDS
-
-
 # Queue size should be <= to the frequency of publication of the topic in order to it to be async.
 bounding_box_publisher = rospy.Publisher('cluster_bounding_boxes', BoundingBoxArray, queue_size=8)
 
 rospy.init_node('register')
+
+# TODO: improve performance for dealing with class
+# TODO: https://stackoverflow.com/questions/44046920/changing-class-attributes-by-reference
 
 # TODO: Place them into another module
 # ----- Helper Functions ------
@@ -165,8 +164,6 @@ def get_cluster_bounding_box_vertices_and_dimensions(cluster_point_cloud):
     x_max, y_max, z_max = cluster_point_cloud.max(axis=0)
     x_min, y_min, z_min = cluster_point_cloud.min(axis=0)
 
-        #[x_min, y_max, z_min]
-
     # * Userd for Open3D in order to validate the bounding box vertices
     bounding_box_points = [
         [x_max, y_max, z_max],
@@ -215,39 +212,33 @@ def get_cluster_bounding_box_and_publish(point_cloud_clusters):
 
         bounding_box_publisher.publish(bounding_box_array)
 
-# TODO: improve performance for dealing with class
-# TODO: https://stackoverflow.com/questions/44046920/changing-class-attributes-by-reference
-
-# TODO: Place everything into a single function
-def function_to_return_n_classes():
-    pass
-
-#def create_clusters_frame_ids(number_of_clusters: int):
-
-
-if __name__ == '__main__':
-
-    pcd = o3d.io.read_point_cloud('wall_table_chair.pcd')
-    downsampled_pc = point_cloud_utils.downsample(pcd)
-
-    # TODO: Will be replaced by the pass-through filter
-    segmented_pc = point_cloud_utils.segment_plane(downsampled_pc)
-
-    cluster_labels_for_each_data_point = point_cloud_utils.cluster_hdbscan(segmented_pc)
-
-    # --- Custom functions to generate classes for each cluster ---
-    pcd_points = get_points_from_point_cloud(segmented_pc)
-
+def generate_cluster_bboxes_and_publish(
+                                        filtered_pc: o3d.geometry.PointCloud,
+                                        cluster_labels_for_each_data_point: list
+                                        ):
+    """
+    Function to generate clusters/classes based on the HDBSCAN algorithm,
+    get bounding boxes from clusters and publish them to ROS.
+    """
+    pcd_points = get_points_from_point_cloud(filtered_pc)
     unique_labels = get_number_of_labels(cluster_labels_for_each_data_point)
-
-    # TODO: Set rosparam number of clusters!
-
     point_cloud_size = get_point_cloud_size(pcd_points)
     colored_clusters = generate_clusters(unique_labels)
 
     # Updates each class/cluster with given their respective data points
     assign_data_points_to_each_cluster(colored_clusters, pcd_points, point_cloud_size, unique_labels, cluster_labels_for_each_data_point)
-    
     get_cluster_bounding_box_and_publish(colored_clusters)
+
+if __name__ == '__main__':
+
+    pcd = o3d.io.read_point_cloud('wall_table_chair.pcd')
+    downsampled_pc = point_cloud_utils.downsample(pcd)
+    pc_points = np.asarray(downsampled_pc.points)
+    filter_boundaries = point_cloud_utils.get_pass_through_filter_boundaries(pc_points)
+    filtered_pc = point_cloud_utils.pass_through_filter(filter_boundaries, downsampled_pc)
+    cluster_labels_for_each_data_point = point_cloud_utils.cluster_hdbscan(filtered_pc)
+    generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
     #draw_bounding_box_from_cluster()
+    #point_cloud_utils.visualize_pcd([])
+    
 
