@@ -16,13 +16,13 @@
     <arg name="verbose" value="true"/>
   </include>
 
-
   <!-- Lauches Husky -->
   <include file="$(find husky_gazebo)/launch/spawn_husky.launch">
   </include>
 
   <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model livox_lidar -param sensor_description" />
   
-  <!--<node name="rviz" pkg="rviz" type="rviz" args="-d $(find livox_laser_simulation)/rviz/livox_simulation.rviz"/>-->
-
+  <!-- Publishes Static Transform to Create TF Tree -->
+  <node pkg="tf" type="static_transform_publisher" name="static_sphere_tf_publisher" args="0 0 0 0 0 0 1 laser_livox cluster 50"/> 
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find livox_laser_simulation)/rviz/livox_simulation.rviz"/>
 </launch>
