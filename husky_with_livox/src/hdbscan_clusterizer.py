@@ -23,6 +23,8 @@ bounding_box_publisher = rospy.Publisher('cluster_bounding_boxes', BoundingBoxAr
 
 rospy.init_node('hdbscan_clusterizer', anonymous=True)
 
+BOUNDING_BOX_FRAME_ID = 'cluster'
+
 # TODO: improve performance for dealing with class
 # TODO: https://stackoverflow.com/questions/44046920/changing-class-attributes-by-reference
 
@@ -60,7 +62,7 @@ class PointCloudCluster:
         default_bounding_box_msg.pose.orientation.x = 0.0
 
         # TODO: This will change to cluster_N dynamically afterwards so that each cluster has its frame_id
-        default_bounding_box_msg.header.frame_id = 'cluster'
+        default_bounding_box_msg.header.frame_id = BOUNDING_BOX_FRAME_ID
 
         default_bounding_box_msg.pose.position.x = 0.0
         default_bounding_box_msg.pose.position.y = 0.0
@@ -115,7 +117,7 @@ def assign_data_points_to_each_cluster(
                 # Stores the datapoint to the class
                 point_cloud_clusters[label].cluster_data_points.append(point_cloud[i])
 
-def calculate_bounding_box_dimensions(bounding_box_points):
+def calculate_bounding_box_dimensions_and_origin(bounding_box_points):
     """
     Given the identified cluster max/min data points (i.e: vertices for the
     to-be drawn bounding box), calculates the X, Y and Z dimensions of the box
@@ -124,11 +126,23 @@ def calculate_bounding_box_dimensions(bounding_box_points):
     Such operation is needed because BoundingBox.msg from jsk_recognition_msgs.msg
     takes in such parameters in order to draw the box in RViz.
     """
+
+    # z varies from z_max to z_min
     bbox_z_dimension = bounding_box_points[2] - bounding_box_points[1]
+    # Only y varies from y_max to y_min
     bbox_y_dimension = bounding_box_points[3] - bounding_box_points[1]
+    # Only x varies from x_max to x_min
     bbox_x_dimension = bounding_box_points[4] - bounding_box_points[1]
+
+    bbox_origin_x = (bounding_box_points[2] + bounding_box_points[1])/2
+    bbox_origin_y = (bounding_box_points[3] + bounding_box_points[1])/2
+    bbox_origin_z = (bounding_box_points[4] + bounding_box_points[1])/2
+
+    # Extracting values from the x, y and z component for each calculated compoenent
+    bbox_origin = [bbox_origin_x[0], bbox_origin_y[1], bbox_origin_z[2]]
+
     box_dimensions_xyz = [bbox_x_dimension[0], bbox_y_dimension[1], bbox_z_dimension[2]]
-    return np.array(box_dimensions_xyz)
+    return np.array(box_dimensions_xyz), np.array(bbox_origin)
 
 def get_cluster_bounding_box_vertices_and_dimensions(cluster_point_cloud):
     """
@@ -156,17 +170,17 @@ def get_cluster_bounding_box_vertices_and_dimensions(cluster_point_cloud):
         [x_max, y_min, z_min]
     ]
 
-    bounding_box_origin_points = [x_min, y_min, z_min]
+    bounding_box_origin_points = [x_max, y_min, z_min]
     bounding_box_origin_position = np.array(bounding_box_origin_points)
 
     bounding_box_points = np.array(bounding_box_points)
 
-    box_dimensions_xyz = calculate_bounding_box_dimensions(bounding_box_points)
+    box_dimensions_xyz, bbox_origin = calculate_bounding_box_dimensions_and_origin(bounding_box_points)
     # Prior testing
     #bounding_box = cluster_point_cloud.get_axis_aligned_bounding_box()
     #print(f"\nBounding Box From Open3D: {np.asarray(bounding_box)}")
 
-    return bounding_box_origin_position, box_dimensions_xyz, bounding_box_points
+    return bbox_origin, box_dimensions_xyz, bounding_box_points
 
 def get_cluster_bounding_box_and_publish(point_cloud_clusters):
     """
@@ -174,7 +188,7 @@ def get_cluster_bounding_box_and_publish(point_cloud_clusters):
     class with the bounding box information for the ROS message and publishes it.
     """
     bounding_box_array = BoundingBoxArray()
-    bounding_box_array.header.frame_id = 'cluster'
+    bounding_box_array.header.frame_id = BOUNDING_BOX_FRAME_ID
     for point_cloud_cluster in point_cloud_clusters:
         # Retrieving min and max data points to draw bounding boxes in RViz
         bounding_box_origin_position, box_dimensions_xyz, _ = get_cluster_bounding_box_vertices_and_dimensions(point_cloud_cluster.cluster_data_points)
@@ -229,10 +243,22 @@ def clusterize_point_cloud(data):
     cluster_labels_for_each_data_point = cluster_hdbscan(filtered_pc)
     generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
 
+def publish_points_to_ros(o3d_pc: o3d.geometry.PointCloud):
+    from time import sleep
+    pc_points = np.asarray(o3d_pc.points)
+    pcl_msg = numpy_to_ros_msg(pc_points)
+    rospy.loginfo(pcl_msg)
+
+    for i in range(0,):
+        point_cloud_publisher.publish(pcl_msg)
+        sleep(0.5)
+
+
 if __name__ == '__main__':
 
-    is_testing_online = True
+    is_testing_online = False
 
+    # * Online package usage
     if is_testing_online:
         # Sets up subscriber 
         rospy.Subscriber("scan", PointCloud, clusterize_point_cloud)
@@ -242,19 +268,26 @@ if __name__ == '__main__':
     
     # * Offline testing
     else:
-        pcd = o3d.io.read_point_cloud('wall_table_chair.pcd')
-        downsampled_pc = downsample(pcd)
-        pc_points = np.asarray(downsampled_pc.points)
-        filter_boundaries = get_pass_through_filter_boundaries(pc_points)
-        filtered_pc = pass_through_filter(filter_boundaries, downsampled_pc)
-        cluster_labels_for_each_data_point, dbscan_cut = cluster_hdbscan(filtered_pc)
-        generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
-        
-        # Testing DBSCAN to compare with single linkage tree cut from HDBSCAN
-        #point_cloud_utils.clustering_dbscan(filtered_pc, 0.05, 5)
-        
-        #draw_bounding_box_from_cluster()
-        #point_cloud_utils.visualize_pcd([])
+
+        point_cloud_publisher = rospy.Publisher('pc_publisher', PointCloud, queue_size=5)
+        from time import sleep
+        for i in range(0,15):
+
+            pcd = o3d.io.read_point_cloud('wall_table_chair.pcd')
+            downsampled_pc = downsample(pcd)
+            pc_points = np.asarray(downsampled_pc.points)
+            filter_boundaries = get_pass_through_filter_boundaries(pc_points)
+            filtered_pc = pass_through_filter(filter_boundaries, downsampled_pc)
+            cluster_labels_for_each_data_point = cluster_hdbscan(filtered_pc)
+            generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
+            sleep(0.5)
+            #publish_points_to_ros(filtered_pc)
+            
+            # Testing DBSCAN to compare with single linkage tree cut from HDBSCAN
+            #point_cloud_utils.clustering_dbscan(filtered_pc, 0.05, 5)
+            
+            #draw_bounding_box_from_cluster()
+            #point_cloud_utils.visualize_pcd([])
         
     
 
