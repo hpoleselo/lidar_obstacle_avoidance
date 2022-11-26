@@ -245,15 +245,6 @@ def clusterize_point_cloud(data):
     cluster_labels_for_each_data_point = cluster_hdbscan(filtered_pc)
     generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
 
-def transform_pose_from_livox_to_cluster(bounding_box_msg):
-    br = tf.TransformBroadcaster()
-    #rospy.loginfo(f"Sending transform between {LIVOX_FRAME_ID} and cluster...")
-    for bounding_box in bounding_box_msg.boxes:
-        br.sendTransform((bounding_box.pose.position.x, bounding_box.pose.position.y, bounding_box.pose.position.z),
-                        (0.0, 0.0, 0.0, 1),
-                        rospy.Time.now(),
-                        'cluster',
-                        LIVOX_FRAME_ID)
 
 # ! May be deprecated, check later.
 def publish_points_to_ros(o3d_pc: o3d.geometry.PointCloud):
@@ -269,11 +260,6 @@ if __name__ == '__main__':
     if IS_TESTING_ONLINE:
         # Sets up subscriber for Point Cloud retrieval
         rospy.Subscriber("scan", PointCloud, clusterize_point_cloud)
-
-        # Sets up subscriber for transforming incoming bounding boxes frame_ids to the livox frame_id
-        rospy.Subscriber("cluster_bounding_boxes", BoundingBoxArray, transform_pose_from_livox_to_cluster)
-
-        # ! RViz should be launched ONLY after this package is running properly (Adjust that in the launch file)
 
         # spin() simply keeps python from exiting until this node is stopped
         rospy.spin()
