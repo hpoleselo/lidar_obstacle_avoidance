@@ -17,13 +17,17 @@ from sensor_msgs.msg import PointCloud
 from jsk_recognition_msgs.msg import BoundingBox, BoundingBoxArray
 from utils.helper_functions import get_number_of_labels, get_point_cloud_size, get_points_from_point_cloud
 from utils.point_cloud_utils import downsample, get_pass_through_filter_boundaries, pass_through_filter, cluster_hdbscan, ros_msg_to_numpy, numpy_to_o3d, numpy_to_ros_msg
+import tf
 
 # Queue size should be <= to the frequency of publication of the topic in order to it to be async.
 bounding_box_publisher = rospy.Publisher('cluster_bounding_boxes', BoundingBoxArray, queue_size=8)
 
 rospy.init_node('hdbscan_clusterizer', anonymous=True)
 
+# TODO: Use rosparam to get and set parameters
 BOUNDING_BOX_FRAME_ID = 'cluster'
+IS_TESTING_ONLINE = True
+LIVOX_FRAME_ID = 'livox'
 
 # TODO: improve performance for dealing with class
 # TODO: https://stackoverflow.com/questions/44046920/changing-class-attributes-by-reference
@@ -241,6 +245,17 @@ def clusterize_point_cloud(data):
     cluster_labels_for_each_data_point = cluster_hdbscan(filtered_pc)
     generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
 
+def transform_pose_from_livox_to_cluster(bounding_box_msg):
+    br = tf.TransformBroadcaster()
+    #rospy.loginfo(f"Sending transform between {LIVOX_FRAME_ID} and cluster...")
+    for bounding_box in bounding_box_msg.boxes:
+        br.sendTransform((bounding_box.pose.position.x, bounding_box.pose.position.y, bounding_box.pose.position.z),
+                        (0.0, 0.0, 0.0, 1),
+                        rospy.Time.now(),
+                        'cluster',
+                        LIVOX_FRAME_ID)
+
+# ! May be deprecated, check later.
 def publish_points_to_ros(o3d_pc: o3d.geometry.PointCloud):
     from time import sleep
     pc_points = np.asarray(o3d_pc.points)
@@ -248,22 +263,23 @@ def publish_points_to_ros(o3d_pc: o3d.geometry.PointCloud):
     rospy.loginfo(pcl_msg)
     point_cloud_publisher.publish(pcl_msg)
 
-
 if __name__ == '__main__':
 
-    is_testing_online = True
-
     # * Online package usage
-    if is_testing_online:
-        # Sets up subscriber 
+    if IS_TESTING_ONLINE:
+        # Sets up subscriber for Point Cloud retrieval
         rospy.Subscriber("scan", PointCloud, clusterize_point_cloud)
+
+        # Sets up subscriber for transforming incoming bounding boxes frame_ids to the livox frame_id
+        rospy.Subscriber("cluster_bounding_boxes", BoundingBoxArray, transform_pose_from_livox_to_cluster)
+
+        # ! RViz should be launched ONLY after this package is running properly (Adjust that in the launch file)
+
         # spin() simply keeps python from exiting until this node is stopped
-        # This may affect Open3D visualization in real-time, if wished.
         rospy.spin()
     
     # * Offline testing
     else:
-
         point_cloud_publisher = rospy.Publisher('pc_publisher', PointCloud, queue_size=5)
         from time import sleep
         for i in range(0,15):
