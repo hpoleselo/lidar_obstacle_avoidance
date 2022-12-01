@@ -16,7 +16,8 @@ import open3d as o3d
 from sensor_msgs.msg import PointCloud
 from jsk_recognition_msgs.msg import BoundingBox, BoundingBoxArray
 from utils.helper_functions import get_number_of_labels, get_point_cloud_size, get_points_from_point_cloud
-from utils.point_cloud_utils import downsample, get_pass_through_filter_boundaries, pass_through_filter, cluster_hdbscan, ros_msg_to_numpy, numpy_to_o3d, numpy_to_ros_msg, clustering_dbscan
+from utils.point_cloud_utils import downsample, get_pass_through_filter_boundaries, pass_through_filter
+from utils.point_cloud_utils import cluster_hdbscan, ros_msg_to_numpy, numpy_to_o3d, numpy_to_ros_msg, clustering_dbscan, visualize_pcd
 import tf
 
 # Queue size should be <= to the frequency of publication of the topic in order to it to be async.
@@ -282,30 +283,62 @@ if __name__ == '__main__':
     # * Offline testing
     else:
         point_cloud_publisher = rospy.Publisher('pc_publisher', PointCloud, queue_size=5)
-        from time import sleep
 
         files = ['wall_table_chair.pcd', 'box_wall_test.pcd']
 
-        for i in range(0,5):
+        visualize_in_open3d = True
 
+        def run(visualize_in_open3d, estimate_best_epsilon_for_dbscan=False):
+            """ Function to ease the execution when checking in Open3D or not"""
+            import time
             pcd = o3d.io.read_point_cloud(files[0])
             downsampled_pc = downsample(pcd)
             pc_points = np.asarray(downsampled_pc.points)
             filter_boundaries = get_pass_through_filter_boundaries(pc_points)
             filtered_pc = pass_through_filter(filter_boundaries, downsampled_pc)
 
-            #dbscan_clustered = clustering_dbscan(filtered_pc, 0.05, 5)
+            if estimate_best_epsilon_for_dbscan:
+                import matplotlib.pyplot as plt
+                from sklearn.neighbors import NearestNeighbors # importing the library
+                neighb = NearestNeighbors(n_neighbors=2) # creating an object of the NearestNeighbors class
+                nbrs=neighb.fit(pc_points) # fitting the data to the object
+                distances,indices=nbrs.kneighbors(pc_points) # finding the nearest neighbours
+                # Sort and plot the distances results
+                distances = np.sort(distances, axis = 0) # sorting the distances
+                distances = distances[:, 1] # taking the second column of the sorted distances
+                plt.rcParams['figure.figsize'] = (5,3) # setting the figure size
+                plt.plot(distances) # plotting the distances
+                plt.show() # showing the plot
 
+                dbscan_min_points = 2*pc_points.shape[1]
+
+            start_counter_ns = time.perf_counter_ns()
             cluster_labels_for_each_data_point = cluster_hdbscan(filtered_pc)
-            generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
-            sleep(0.5)
-            #publish_points_to_ros(filtered_pc)
             
+            #dbscan_clustered = clustering_dbscan(filtered_pc, 0.15, dbscan_min_points)
+            end_counter_ns = time.perf_counter_ns()
+
+            exec_time_in_ms = (end_counter_ns - start_counter_ns)/(10**6)
+            print(f"Time took to execute clusterization: {exec_time_in_ms}ms")
+
+            #generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
+            #publish_points_to_ros(filtered_pc)
+            if visualize_in_open3d:
+                print(f"Downsampled PointCloud with {pc_points.shape[0]} points.")
+
             # Testing DBSCAN to compare with single linkage tree cut from HDBSCAN
             #point_cloud_utils.clustering_dbscan(filtered_pc, 0.05, 5)
             
+            return dbscan_clustered, pcd
+
+        if visualize_in_open3d:
+            filtered_pc, raw_pcd = run(visualize_in_open3d)
             #draw_bounding_box_from_cluster()
-            #point_cloud_utils.visualize_pcd([])
-        
+            visualize_pcd([filtered_pc])
+        else:
+            from time import sleep
+            for i in range(0,5):
+               _, _ = run(visualize_in_open3d)
+
     
 
