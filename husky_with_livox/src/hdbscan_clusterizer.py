@@ -16,7 +16,7 @@ import open3d as o3d
 from sensor_msgs.msg import PointCloud
 from jsk_recognition_msgs.msg import BoundingBox, BoundingBoxArray
 from utils.helper_functions import get_number_of_labels, get_point_cloud_size, get_points_from_point_cloud
-from utils.point_cloud_utils import downsample, get_pass_through_filter_boundaries, pass_through_filter, cluster_hdbscan, ros_msg_to_numpy, numpy_to_o3d, numpy_to_ros_msg
+from utils.point_cloud_utils import downsample, get_pass_through_filter_boundaries, pass_through_filter, cluster_hdbscan, ros_msg_to_numpy, numpy_to_o3d, numpy_to_ros_msg, clustering_dbscan
 import tf
 
 # Queue size should be <= to the frequency of publication of the topic in order to it to be async.
@@ -26,7 +26,7 @@ rospy.init_node('hdbscan_clusterizer', anonymous=True)
 
 # TODO: Use rosparam to get and set parameters
 BOUNDING_BOX_FRAME_ID = 'cluster'
-IS_TESTING_ONLINE = True
+IS_TESTING_ONLINE = False
 LIVOX_FRAME_ID = 'livox'
 
 # TODO: improve performance for dealing with class
@@ -195,6 +195,12 @@ def get_cluster_bounding_box_and_publish(point_cloud_clusters):
         # Retrieving min and max data points to draw bounding boxes in RViz
         bounding_box_origin_position, box_dimensions_xyz, _ = get_cluster_bounding_box_vertices_and_dimensions(point_cloud_cluster.cluster_data_points)
 
+        # * Conditional to check if bounding box is zero, basically when we take the noise label -1
+        # * in account...
+        if (box_dimensions_xyz[0] == 0.0) or (box_dimensions_xyz[1] == 0.0) or (box_dimensions_xyz[2] == 0.0):
+            rospy.logwarn(f"Bounding box for label{point_cloud_cluster.label} is empty. Ignoring data to be published to the topic.")
+            continue
+
         # * Updates message with the bounding box information
         # * Updating each bounding box with a specific frame_id isn't needed.
         #point_cloud_cluster.bounding_box.header.frame_id = f'cluster_{point_cloud_cluster.label}'
@@ -204,6 +210,7 @@ def get_cluster_bounding_box_and_publish(point_cloud_clusters):
         point_cloud_cluster.bounding_box.dimensions.x = box_dimensions_xyz[0]
         point_cloud_cluster.bounding_box.dimensions.y = box_dimensions_xyz[1]
         point_cloud_cluster.bounding_box.dimensions.z = box_dimensions_xyz[2]
+
         # * Since BoundingBox.label doesn't allow the label int to be unsigned, we must
         # * Convert it to some positive number
         if point_cloud_cluster.label == -1:
@@ -215,7 +222,9 @@ def get_cluster_bounding_box_and_publish(point_cloud_clusters):
 
         bounding_box_publisher.publish(bounding_box_array)
 
-def generate_cluster_bboxes_and_publish(filtered_pc: o3d.geometry.PointCloud, cluster_labels_for_each_data_point: list
+def generate_cluster_bboxes_and_publish(filtered_pc: o3d.geometry.PointCloud,
+                                        cluster_labels_for_each_data_point: list,
+                                        remove_noise_cluster=True
                                         ):
     """
     Function to generate clusters/classes based on the HDBSCAN algorithm,
@@ -223,6 +232,12 @@ def generate_cluster_bboxes_and_publish(filtered_pc: o3d.geometry.PointCloud, cl
     """
     pcd_points = get_points_from_point_cloud(filtered_pc)
     unique_labels = get_number_of_labels(cluster_labels_for_each_data_point)
+
+    # Removes label -1, which represents classified noise
+    if remove_noise_cluster:
+        if -1 in unique_labels:
+            unique_labels.remove(-1)
+    
     point_cloud_size = get_point_cloud_size(pcd_points)
     colored_clusters = generate_clusters(unique_labels)
 
@@ -268,13 +283,19 @@ if __name__ == '__main__':
     else:
         point_cloud_publisher = rospy.Publisher('pc_publisher', PointCloud, queue_size=5)
         from time import sleep
-        for i in range(0,15):
 
-            pcd = o3d.io.read_point_cloud('wall_table_chair.pcd')
+        files = ['wall_table_chair.pcd', 'box_wall_test.pcd']
+
+        for i in range(0,5):
+
+            pcd = o3d.io.read_point_cloud(files[0])
             downsampled_pc = downsample(pcd)
             pc_points = np.asarray(downsampled_pc.points)
             filter_boundaries = get_pass_through_filter_boundaries(pc_points)
             filtered_pc = pass_through_filter(filter_boundaries, downsampled_pc)
+
+            #dbscan_clustered = clustering_dbscan(filtered_pc, 0.05, 5)
+
             cluster_labels_for_each_data_point = cluster_hdbscan(filtered_pc)
             generate_cluster_bboxes_and_publish(filtered_pc, cluster_labels_for_each_data_point)
             sleep(0.5)
