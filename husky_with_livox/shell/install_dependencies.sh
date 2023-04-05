@@ -1,5 +1,5 @@
 # Makes sure to source ROS, otherwise $ROS_DISTRO won't work below
-source source /opt/ros/noetic/setup.bash
+source /opt/ros/noetic/setup.bash
 
 # Setup to clone livox repository
 sudo apt-get install git
