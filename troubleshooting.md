@@ -2,6 +2,8 @@
 
 Document dedicated to steps taken in order to simulate or run Livox in the physical robot.
 
+Commit test
+
 - Using Ubuntu 20.04
 
 ## Issue 1
